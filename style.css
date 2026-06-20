@@ -165,6 +165,20 @@ html, body {
 
 .btn-large { font-size: 1.1rem; padding: 0.9rem 1.75rem; width: 100%; }
 
+.btn-rules-link {
+  display: block;
+  text-align: center;
+  color: var(--color-blue);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0.4rem;
+  min-height: var(--min-touch);
+  line-height: var(--min-touch);
+}
+.btn-rules-link:hover { color: #1976d2; }
+
 /* ── Pass-phone screen ────────────────────────────────────────────────────── */
 .screen-pass {
   background: var(--bg);

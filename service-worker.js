@@ -1,8 +1,9 @@
-const CACHE = 'petits-chevaux-v3';
+const CACHE = 'petits-chevaux-v4';
 
 const ASSETS = [
   './',
   './index.html',
+  './regles.html',
   './style.css',
   './manifest.json',
   './bundle.js',

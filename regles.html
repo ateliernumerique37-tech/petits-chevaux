@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1565c0" />
+  <meta name="description" content="Règles du Jeu de Petits Chevaux" />
+  <title>Règles – Petits Chevaux</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Règles : surcharges locales ─────────────────────────────────────── */
+    body { overflow: auto; }
+
+    .rules-page {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem 3rem;
+      background: var(--bg);
+    }
+
+    .rules-card {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      padding: 2rem 1.75rem;
+      width: min(96vw, 680px);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .rules-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .rules-title {
+      font-size: clamp(1.5rem, 5vw, 2rem);
+      font-weight: 800;
+      color: var(--color-blue);
+      flex: 1;
+    }
+
+    .rules-section { display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .rules-section h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--on-surface);
+      border-left: 4px solid var(--color-blue);
+      padding-left: 0.75rem;
+    }
+
+    .rules-section p, .rules-section li {
+      font-size: 0.97rem;
+      line-height: 1.65;
+      color: var(--on-surface);
+    }
+
+    .rules-section ul, .rules-section ol {
+      padding-left: 1.4rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .rules-colors {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.5rem;
+    }
+
+    .color-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .tip-box {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.85rem 1rem;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--on-surface-2);
+    }
+
+    .tip-box strong { color: var(--on-surface); }
+
+    .shortcuts-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    .shortcuts-table th, .shortcuts-table td {
+      text-align: left;
+      padding: 0.55rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .shortcuts-table th {
+      font-weight: 700;
+      color: var(--on-surface-2);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: transparent;
+      color: var(--color-blue);
+      border: 2px solid var(--color-blue);
+      border-radius: var(--radius-md);
+      font-family: var(--font);
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.55rem 1.25rem;
+      min-height: var(--min-touch);
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-back:hover {
+      background: var(--color-blue);
+      color: white;
+    }
+
+    hr.rules-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="rules-page" role="main">
+    <article class="rules-card" aria-labelledby="rules-title">
+
+      <header class="rules-header">
+        <a href="index.html" class="btn-back" aria-label="Retour au jeu">
+          ← Retour au jeu
+        </a>
+        <h1 id="rules-title" class="rules-title">Règles du jeu</h1>
+      </header>
+
+      <!-- But du jeu -->
+      <section class="rules-section" aria-labelledby="but-h2">
+        <h2 id="but-h2">But du jeu</h2>
+        <p>
+          Être le premier joueur à amener ses <strong>4 chevaux</strong> depuis l'écurie jusqu'au
+          <strong>centre du plateau</strong>. Le jeu se joue de 2 à 4 joueurs, chacun contrôlant
+          une couleur.
+        </p>
+        <div class="rules-colors" aria-label="Couleurs des joueurs">
+          <span class="color-badge">
+            <span class="color-dot" style="background:#c62828" aria-hidden="true"></span>Rouge
+          </span>
+          <span class="color-badge">
+            <span class="color-dot" style="background:#2e7d32" aria-hidden="true"></span>Vert
+          </span>
+          <span class="color-badge">
+            <span class="color-dot" style="background:#f57f17" aria-hidden="true"></span>Jaune
+          </span>
+          <span class="color-badge">
+            <span class="color-dot" style="background:#1565c0" aria-hidden="true"></span>Bleu
+          </span>
+        </div>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Tour de jeu -->
+      <section class="rules-section" aria-labelledby="tour-h2">
+        <h2 id="tour-h2">Déroulement d'un tour</h2>
+        <ol>
+          <li>Le joueur actif <strong>lance le dé</strong>.</li>
+          <li>Si le résultat permet de bouger au moins un cheval, il choisit lequel déplacer.</li>
+          <li>Si aucun mouvement n'est possible, le tour passe au joueur suivant.</li>
+        </ol>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Sortir de l'écurie -->
+      <section class="rules-section" aria-labelledby="ecurie-h2">
+        <h2 id="ecurie-h2">Sortir de l'écurie</h2>
+        <p>
+          Un cheval ne peut quitter l'écurie que si le dé affiche <strong>6</strong>.
+          Il se place alors sur la case de départ de sa couleur, qui est une <strong>case protégée</strong>
+          (voir ci-dessous). Obtenir un 6 permet de rejouer.
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Déplacement -->
+      <section class="rules-section" aria-labelledby="deplacement-h2">
+        <h2 id="deplacement-h2">Déplacement sur le circuit</h2>
+        <p>
+          Les chevaux avancent dans le sens des aiguilles d'une montre sur le circuit commun
+          de <strong>52 cases</strong>. Chaque couleur a sa propre case de départ.
+        </p>
+        <p>
+          Lorsqu'un cheval atteint l'entrée de son <strong>couloir d'arrivée</strong>
+          (les 6 cases colorées menant au centre), il quitte le circuit commun et avance
+          case par case vers le centre.
+        </p>
+        <div class="tip-box" role="note">
+          <strong>Rebond :</strong> si un cheval dépasse la case centrale lors d'un jet,
+          il recule du nombre de cases excédentaires. Il n'est pas possible de dépasser le centre
+          sans y atterrir exactement — le cheval rebondit vers l'arrière.
+        </div>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Captures -->
+      <section class="rules-section" aria-labelledby="capture-h2">
+        <h2 id="capture-h2">Captures</h2>
+        <p>
+          Si un cheval atterrit sur une case <strong>déjà occupée par un adversaire</strong>,
+          ce dernier est renvoyé à l'écurie et devra rejouer un 6 pour ressortir.
+          La capture offre un <strong>tour supplémentaire</strong> au joueur qui l'a effectuée.
+        </p>
+        <p>
+          La capture est <strong>impossible</strong> sur les cases protégées (voir ci-dessous)
+          et dans le couloir d'arrivée (chaque couleur a son propre couloir, inaccessible aux autres).
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Cases protégées -->
+      <section class="rules-section" aria-labelledby="safe-h2">
+        <h2 id="safe-h2">Cases protégées</h2>
+        <p>
+          Quatre cases du circuit commun sont des <strong>cases de départ</strong> (une par couleur).
+          Ces cases sont protégées : on ne peut pas y être capturé. Plusieurs chevaux de couleurs
+          différentes peuvent s'y trouver simultanément.
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Rejouer -->
+      <section class="rules-section" aria-labelledby="rejouer-h2">
+        <h2 id="rejouer-h2">Quand rejoue-t-on ?</h2>
+        <ul>
+          <li>Après avoir obtenu un <strong>6</strong> (qu'un cheval sorte ou non de l'écurie).</li>
+          <li>Après avoir <strong>capturé</strong> un cheval adverse.</li>
+        </ul>
+        <p>Ces deux bonus sont cumulables si les deux conditions sont réunies au même tour.</p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Triple 6 -->
+      <section class="rules-section" aria-labelledby="triple-h2">
+        <h2 id="triple-h2">Pénalité triple 6</h2>
+        <p>
+          Si un joueur obtient <strong>trois 6 consécutifs</strong>, son cheval le plus avancé
+          sur le circuit est renvoyé à l'écurie et son tour est perdu.
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Fin de partie -->
+      <section class="rules-section" aria-labelledby="fin-h2">
+        <h2 id="fin-h2">Fin de partie</h2>
+        <p>
+          Le premier joueur à placer ses <strong>4 chevaux au centre</strong> remporte la partie.
+          En mode session, les victoires s'accumulent et sont affichées après chaque partie.
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Mode IA -->
+      <section class="rules-section" aria-labelledby="bernard-h2">
+        <h2 id="bernard-h2">Jouer contre Bernard (IA)</h2>
+        <p>
+          En mode IA, vous jouez <strong>Rouge</strong> et Bernard contrôle toutes les autres couleurs.
+          Bernard suit une stratégie en six priorités : gagner immédiatement, capturer un adversaire,
+          avancer dans le couloir d'arrivée, entrer dans le couloir, se placer sur une case sûre,
+          puis éviter les cases dangereuses.
+        </p>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <!-- Raccourcis -->
+      <section class="rules-section" aria-labelledby="shortcuts-h2">
+        <h2 id="shortcuts-h2">Raccourcis clavier (Alt+Maj)</h2>
+        <p>Ces raccourcis fonctionnent pendant la partie :</p>
+        <table class="shortcuts-table" aria-label="Tableau des raccourcis clavier">
+          <thead>
+            <tr>
+              <th scope="col">Raccourci</th>
+              <th scope="col">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>D</kbd></td>
+              <td>Lancer le dé</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>1</kbd> à <kbd>4</kbd></td>
+              <td>Déplacer le cheval numéro 1, 2, 3 ou 4</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>S</kbd></td>
+              <td>Lire la situation de tous les joueurs</td>
+            </tr>
+            <tr>
+              <td><kbd>Alt</kbd>+<kbd>Maj</kbd>+<kbd>A</kbd></td>
+              <td>Répéter la dernière annonce</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="tip-box" role="note">
+          <strong>Navigation au plateau :</strong> utilisez <kbd>Tab</kbd> pour naviguer entre les
+          chevaux déplaçables, puis <kbd>Entrée</kbd> ou <kbd>Espace</kbd> pour sélectionner.
+        </div>
+      </section>
+
+      <hr class="rules-divider" />
+
+      <footer>
+        <a href="index.html" class="btn-back" aria-label="Retour au jeu">
+          ← Retour au jeu
+        </a>
+      </footer>
+
+    </article>
+  </div>
+
+</body>
+</html>
