@@ -25,6 +25,47 @@ function playerLabel(color) {
   return aiPlayers.has(color) ? `${AI_NAME} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
 }
 
+// ─── Vibration ────────────────────────────────────────────────────────────────
+
+function vibrate(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
+// ─── Shake to roll ────────────────────────────────────────────────────────────
+
+const SHAKE_THRESHOLD = 15; // m/s²
+const SHAKE_COOLDOWN  = 1200; // ms entre deux secousses
+let lastShake = 0;
+let motionListenerAdded = false;
+
+function onDeviceMotion(e) {
+  if (!state || state.phase !== 'rolling' || aiPlayers.has(state.currentColor)) return;
+  const btn = document.getElementById('btn-dice');
+  if (btn && btn.disabled) return;
+  const g = e.accelerationIncludingGravity;
+  if (!g) return;
+  const mag = Math.sqrt(g.x * g.x + g.y * g.y + g.z * g.z);
+  const now = Date.now();
+  if (mag > SHAKE_THRESHOLD && now - lastShake > SHAKE_COOLDOWN) {
+    lastShake = now;
+    onDiceClick();
+  }
+}
+
+async function requestMotionPermission() {
+  if (typeof DeviceMotionEvent === 'undefined') return;
+  if (motionListenerAdded) return;
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    // iOS 13+ : doit être appelé depuis un geste utilisateur
+    try {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res !== 'granted') return;
+    } catch (e) { return; }
+  }
+  window.addEventListener('devicemotion', onDeviceMotion);
+  motionListenerAdded = true;
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -91,6 +132,7 @@ function handleKeyboard(e) {
 
 function startGame(playerCount, isAiMode) {
   unlockAudio();
+  requestMotionPermission(); // demande permission iOS si nécessaire
   state = createGame(playerCount);
 
   aiPlayers = new Set();
@@ -138,6 +180,7 @@ function beginTurn() {
 
 function aiPlayTurn() {
   play('dice-roll');
+  vibrate(50);
   const value = rollDice();
   state.lastDice = value;
 
@@ -148,6 +191,7 @@ function aiPlayTurn() {
     if (state.consecutiveSixes >= 3) {
       state.consecutiveSixes = 0;
       play('pass-turn');
+      vibrate([200, 100, 200]);
       updateTurnBanner(state.currentColor, state.phase, value);
       const penalized = applyTripleSixPenalty(state);
       if (penalized) {
@@ -163,7 +207,7 @@ function aiPlayTurn() {
       return;
     }
 
-    if (value === 6) play('dice-six');
+    if (value === 6) { play('dice-six'); vibrate([80, 40, 80]); }
 
     const ids = getValidMoves(state, value);
     state.validMoveIds = ids;
@@ -172,6 +216,7 @@ function aiPlayTurn() {
     if (ids.length === 0) {
       announce(`${playerLabel(state.currentColor)} lance ${value}. Aucun mouvement possible.`, true);
       play('pass-turn');
+      vibrate([30, 30, 30]);
       setTimeout(() => endTurn(false), 1200);
       return;
     }
@@ -194,6 +239,7 @@ function onDiceClick() {
   unlockAudio();
   setDiceEnabled(false);
   play('dice-roll');
+  vibrate(50);
 
   const value = rollDice();
   state.lastDice = value;
@@ -205,6 +251,7 @@ function onDiceClick() {
     if (state.consecutiveSixes >= 3) {
       state.consecutiveSixes = 0;
       play('pass-turn');
+      vibrate([200, 100, 200]);
       updateTurnBanner(state.currentColor, state.phase, value);
       const penalized = applyTripleSixPenalty(state);
       if (penalized) {
@@ -220,7 +267,7 @@ function onDiceClick() {
       return;
     }
 
-    if (value === 6) play('dice-six');
+    if (value === 6) { play('dice-six'); vibrate([80, 40, 80]); }
 
     const ids = getValidMoves(state, value);
     state.validMoveIds = ids;
@@ -231,6 +278,7 @@ function onDiceClick() {
     if (ids.length === 0) {
       announce(`${colorName} lance ${value}. Aucun mouvement possible.`, true);
       play('pass-turn');
+      vibrate([30, 30, 30]);
       setTimeout(() => endTurn(false), 1200);
       return;
     }
@@ -273,11 +321,13 @@ function onHorseSelected(horseId) {
       moveHorse(horse);
       if (ev.bounced) {
         play('move');
+        vibrate([30, 20, 30]);
         announce(
           `Rebond ! Cheval ${COLOR_NAMES[ev.color]} ${ev.horseId + 1} recule à la case ${horse.relPos - 51} du couloir.`
         );
       } else {
         play(ev.type);
+        vibrate(ev.type === 'exit-stable' ? 80 : 30);
       }
     }
     if (ev.type === 'capture') {
@@ -285,6 +335,7 @@ function onHorseSelected(horseId) {
       const captured = state.horses.find(h => h.color === ev.capturedColor && h.id === ev.capturedId);
       moveHorse(captured);
       play('capture');
+      vibrate([100, 50, 150]);
       const replayMsg = aiPlayers.has(ev.byColor) ? `${AI_NAME} rejoue !` : "Vous rejouez !";
       announce(
         `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoyé à l'écurie. ${replayMsg}`,
@@ -293,6 +344,7 @@ function onHorseSelected(horseId) {
     }
     if (ev.type === 'home-stretch') {
       play('home-stretch');
+      vibrate([50, 30, 50]);
       announce(`${playerLabel(ev.color)} entre dans le couloir d'arrivée !`);
     }
     if (ev.type === 'win') {
@@ -301,6 +353,7 @@ function onHorseSelected(horseId) {
       state.players.forEach(c => { nameMap[c] = playerLabel(c); });
       setTimeout(() => {
         play('victory');
+        vibrate([100, 50, 100, 50, 300]);
         showWinner(ev.color, sessionScores, nameMap);
       }, 600);
       return;
