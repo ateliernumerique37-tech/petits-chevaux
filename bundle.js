@@ -804,7 +804,7 @@
           announce(getFullSituation(state));
         }
         break;
-      case "KeyR":
+      case "KeyA":
         e.preventDefault();
         repeatLastAnnouncement();
         break;
@@ -825,7 +825,7 @@
     showScreen("game");
     if (!shortcutsAnnounced) {
       shortcutsAnnounced = true;
-      announce("Raccourcis Alt+Maj disponibles : D pour le d\xE9, 1 \xE0 4 pour un cheval, S pour la situation, R pour r\xE9p\xE9ter.", true);
+      announce("Raccourcis Alt+Maj disponibles : D pour le d\xE9, 1 \xE0 4 pour un cheval, S pour la situation, A pour r\xE9p\xE9ter.", true);
     }
     beginTurn();
   }
