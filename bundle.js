@@ -259,23 +259,59 @@
   function getAIMove(state2, dice) {
     const ids = getValidMoves(state2, dice);
     if (ids.length === 0) return null;
-    for (const id of ids) {
-      const horse = state2.horses.find((h) => h.color === state2.currentColor && h.id === id);
-      if (horse.relPos === -1) continue;
-      const newRelPos = horse.relPos + dice;
-      if (newRelPos >= 0 && newRelPos <= 51) {
-        const newAbs = (START[state2.currentColor] + newRelPos) % 52;
-        if (!SAFE_ABS.has(newAbs)) {
-          const hasTarget = state2.horses.some(
-            (h) => h.color !== state2.currentColor && h.relPos >= 0 && h.relPos <= 51 && (START[h.color] + h.relPos) % 52 === newAbs
-          );
-          if (hasTarget) return id;
-        }
+    if (ids.length === 1) return ids[0];
+    const color = state2.currentColor;
+    function isExposed(absPos) {
+      for (const h of state2.horses) {
+        if (h.color === color || h.relPos < 0 || h.relPos > 51) continue;
+        const hAbs = (START[h.color] + h.relPos) % 52;
+        const steps = (absPos - hAbs + 52) % 52;
+        if (steps >= 1 && steps <= 6) return true;
       }
+      return false;
     }
-    const onTrack = ids.map((id) => state2.horses.find((h) => h.color === state2.currentColor && h.id === id)).filter((h) => h.relPos >= 0);
-    if (onTrack.length > 0) {
-      return onTrack.reduce((best, h) => h.relPos > best.relPos ? h : best).id;
+    function simulate(horse) {
+      const wasInStable = horse.relPos === -1;
+      let newRel = wasInStable ? 0 : horse.relPos + dice;
+      let bounced = false;
+      if (newRel > FINISHED_REL) {
+        newRel = FINISHED_REL - (newRel - FINISHED_REL);
+        bounced = true;
+      }
+      const newAbs = !bounced && newRel >= 0 && newRel <= 51 ? (START[color] + newRel) % 52 : null;
+      return {
+        id: horse.id,
+        newRel,
+        wasInStable,
+        bounced,
+        newAbs,
+        wins: newRel === FINISHED_REL,
+        captures: !!newAbs && !SAFE_ABS.has(newAbs) && state2.horses.some((h) => h.color !== color && h.relPos >= 0 && h.relPos <= 51 && (START[h.color] + h.relPos) % 52 === newAbs),
+        entersHome: !wasInStable && horse.relPos <= 51 && newRel >= 52 && !bounced,
+        inHome: horse.relPos >= 52,
+        isSafe: !!newAbs && SAFE_ABS.has(newAbs),
+        isDangerous: !!newAbs && !SAFE_ABS.has(newAbs) && isExposed(newAbs)
+      };
+    }
+    const opts = ids.map(
+      (id) => simulate(state2.horses.find((h) => h.color === color && h.id === id))
+    );
+    const pickBest = (arr) => arr.reduce((b, o) => o.newRel > b.newRel ? o : b);
+    const win = opts.find((o) => o.wins);
+    if (win) return win.id;
+    const capture = opts.find((o) => o.captures);
+    if (capture) return capture.id;
+    const inHome = opts.filter((o) => o.inHome && !o.bounced);
+    if (inHome.length) return pickBest(inHome).id;
+    const enterHome = opts.filter((o) => o.entersHome);
+    if (enterHome.length) return enterHome[0].id;
+    const onTrack = opts.filter((o) => !o.wasInStable && o.newAbs !== null);
+    if (onTrack.length) {
+      const safe = onTrack.filter((o) => o.isSafe);
+      if (safe.length) return pickBest(safe).id;
+      const notDangerous = onTrack.filter((o) => !o.isDangerous);
+      if (notDangerous.length) return pickBest(notDangerous).id;
+      return pickBest(onTrack).id;
     }
     return ids[0];
   }
@@ -703,8 +739,9 @@
       }
     }, 80);
   }
-  function showWinner(color, scores) {
-    $("winner-name").textContent = COLOR_NAMES[color];
+  function showWinner(color, scores, nameMap) {
+    const displayName = nameMap && nameMap[color] || COLOR_NAMES[color];
+    $("winner-name").textContent = displayName;
     $("winner-name").style.color = {
       red: "#c62828",
       green: "#2e7d32",
@@ -713,13 +750,16 @@
     }[color];
     const scoresEl = $("winner-scores");
     if (scores) {
-      const parts = Object.entries(scores).filter(([, s]) => s > 0).map(([c, s]) => `${COLOR_NAMES[c]}: ${s} victoire${s > 1 ? "s" : ""}`);
+      const parts = Object.entries(scores).filter(([, s]) => s > 0).map(([c, s]) => {
+        const n = nameMap && nameMap[c] || COLOR_NAMES[c];
+        return `${n}: ${s} victoire${s > 1 ? "s" : ""}`;
+      });
       scoresEl.textContent = parts.length > 0 ? `Scores: ${parts.join(", ")}` : "";
     } else {
       scoresEl.textContent = "";
     }
     showScreen("winner");
-    announce(`Victoire ! ${COLOR_NAMES[color]} a gagn\xE9 la partie !`, true);
+    announce(`Victoire ! ${displayName} a gagn\xE9 la partie !`, true);
   }
   function initWinnerScreen(onRestart) {
     $("btn-restart").addEventListener("click", onRestart);
@@ -762,6 +802,10 @@
   var aiPlayers = /* @__PURE__ */ new Set();
   var sessionScores = {};
   var shortcutsAnnounced = false;
+  var AI_NAME = "Bernard";
+  function playerLabel(color) {
+    return aiPlayers.has(color) ? `${AI_NAME} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+  }
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
     createBoard(document.getElementById("board-container"));
@@ -838,7 +882,7 @@
     const summary = getTurnSummary(state);
     if (aiPlayers.has(state.currentColor)) {
       setDiceEnabled(false);
-      announce(`Intelligence artificielle joue pour ${colorName}. ${summary}.`);
+      announce(`${AI_NAME} joue pour ${colorName}. ${summary}.`);
       setTimeout(aiPlayTurn, 1800);
     } else {
       setDiceEnabled(true);
@@ -860,11 +904,11 @@
         if (penalized) {
           moveHorse(penalized);
           announce(
-            `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de l'IA perdu.`,
+            `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de ${AI_NAME} perdu.`,
             true
           );
         } else {
-          announce(`Trois 6 de suite ! Tour de l'IA perdu.`, true);
+          announce(`Trois 6 de suite ! Tour de ${AI_NAME} perdu.`, true);
         }
         setTimeout(() => endTurn(false), 2e3);
         return;
@@ -874,13 +918,13 @@
       state.validMoveIds = ids;
       updateTurnBanner(state.currentColor, state.phase, value);
       if (ids.length === 0) {
-        announce(`${COLOR_NAMES[state.currentColor]} (IA) lance ${value}. Aucun mouvement possible.`, true);
+        announce(`${playerLabel(state.currentColor)} lance ${value}. Aucun mouvement possible.`, true);
         play("pass-turn");
         setTimeout(() => endTurn(false), 1200);
         return;
       }
       state.phase = "selecting";
-      announce(`${COLOR_NAMES[state.currentColor]} (IA) lance ${value}.`);
+      announce(`${playerLabel(state.currentColor)} lance ${value}.`);
       setTimeout(() => {
         const chosenId = getAIMove(state, value);
         onHorseSelected(chosenId);
@@ -967,7 +1011,7 @@
         const captured = state.horses.find((h) => h.color === ev.capturedColor && h.id === ev.capturedId);
         moveHorse(captured);
         play("capture");
-        const replayMsg = aiPlayers.has(ev.byColor) ? "L'IA rejoue !" : "Vous rejouez !";
+        const replayMsg = aiPlayers.has(ev.byColor) ? `${AI_NAME} rejoue !` : "Vous rejouez !";
         announce(
           `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. ${replayMsg}`,
           true
@@ -975,13 +1019,17 @@
       }
       if (ev.type === "home-stretch") {
         play("home-stretch");
-        announce(`${COLOR_NAMES[ev.color]} entre dans le couloir d'arriv\xE9e !`);
+        announce(`${playerLabel(ev.color)} entre dans le couloir d'arriv\xE9e !`);
       }
       if (ev.type === "win") {
         sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
+        const nameMap = {};
+        state.players.forEach((c) => {
+          nameMap[c] = playerLabel(c);
+        });
         setTimeout(() => {
           play("victory");
-          showWinner(ev.color, sessionScores);
+          showWinner(ev.color, sessionScores, nameMap);
         }, 600);
         return;
       }
@@ -991,7 +1039,7 @@
   }
   async function endTurn(extraTurn) {
     if (extraTurn) {
-      announce(`${COLOR_NAMES[state.currentColor]} rejoue !`);
+      announce(`${playerLabel(state.currentColor)} rejoue !`);
       beginTurn();
       return;
     }
