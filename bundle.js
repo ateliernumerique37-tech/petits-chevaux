@@ -820,7 +820,7 @@
           announce(getFullSituation(state));
         }
         break;
-      case "KeyA":
+      case "KeyQ":
         e.preventDefault();
         repeatLastAnnouncement();
         break;

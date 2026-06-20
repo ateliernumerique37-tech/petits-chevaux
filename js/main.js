@@ -76,7 +76,7 @@ function handleKeyboard(e) {
       }
       break;
 
-    case 'KeyA':
+    case 'KeyQ': // touche 'A' sur AZERTY (position physique Q sur QWERTY)
       e.preventDefault();
       repeatLastAnnouncement();
       break;
