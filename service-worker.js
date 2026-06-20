@@ -1,4 +1,4 @@
-const CACHE = 'petits-chevaux-v4';
+const CACHE = 'petits-chevaux-v5';
 
 const ASSETS = [
   './',
@@ -30,6 +30,10 @@ self.addEventListener('activate', e => {
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', e => {

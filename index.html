@@ -149,6 +149,25 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('service-worker.js').then(reg => {
+          // iOS standalone ne vérifie jamais le SW par lui-même :
+          // reg.update() force la vérification à chaque chargement et retour au premier plan.
+          reg.update();
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') reg.update();
+          });
+
+          // Quand un nouveau SW est prêt, lui envoyer SKIP_WAITING
+          // (le SW passe à 'installed' = en attente si une page est encore ouverte)
+          reg.addEventListener('updatefound', () => {
+            const sw = reg.installing;
+            sw.addEventListener('statechange', () => {
+              if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+                sw.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+
+          // Recharger dès que le nouveau SW prend le contrôle
           const prevController = navigator.serviceWorker.controller;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (prevController) window.location.reload();
