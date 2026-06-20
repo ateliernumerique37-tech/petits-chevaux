@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1565c0" />
+  <meta name="description" content="Jeu de Petits Chevaux – jouez à plusieurs sur un seul téléphone" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Petits Chevaux" />
+
+  <title>Petits Chevaux</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── ARIA live regions (visually hidden) ── -->
+  <div id="aria-status" role="status" aria-live="polite"   aria-atomic="true" class="sr-only"></div>
+  <div id="aria-alert"  role="alert"  aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 1 – Setup
+  ══════════════════════════════════════════════════════════ -->
+  <main id="screen-setup" class="screen" aria-label="Configuration de la partie" hidden>
+    <div class="setup-card" role="region" aria-labelledby="setup-title">
+      <h1 id="setup-title" class="setup-title">🐴 Petits Chevaux</h1>
+      <p class="setup-subtitle">Jeu de plateau classique</p>
+
+      <div class="form-group">
+        <label for="player-count" class="label">Nombre de joueurs</label>
+        <select id="player-count" class="select" aria-describedby="player-count-hint">
+          <option value="2">2 joueurs — Rouge &amp; Vert</option>
+          <option value="3">3 joueurs — Rouge, Vert &amp; Jaune</option>
+          <option value="4" selected>4 joueurs — Rouge, Vert, Jaune &amp; Bleu</option>
+        </select>
+        <p id="player-count-hint" class="hint">Chaque joueur joue à son tour en passant le téléphone.</p>
+      </div>
+
+      <button id="btn-start" class="btn btn-primary btn-large" type="button">
+        Lancer la partie
+      </button>
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 2 – Pass phone
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-pass" class="screen screen-pass" aria-label="Passation du téléphone" role="dialog" aria-modal="true" hidden>
+    <div class="pass-card">
+      <p class="pass-label" aria-hidden="true">📱 Passez le téléphone à</p>
+      <p id="pass-player-name" class="pass-player-name" aria-label="Joueur suivant"></p>
+      <p class="pass-instruction">L'écran vous appartient maintenant.</p>
+      <button id="btn-ready" class="btn btn-ready btn-large" type="button"
+              aria-label="Je suis prêt, afficher le plateau">
+        Je suis prêt !
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 3 – Game
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-game" class="screen screen-game" aria-label="Partie en cours" hidden>
+
+    <!-- Status bar -->
+    <header class="game-header" role="banner">
+      <span id="turn-banner" class="turn-banner" aria-live="polite" aria-atomic="true">
+        Tour de …
+      </span>
+      <span id="dice-result" class="dice-result" aria-live="polite" aria-atomic="true"></span>
+    </header>
+
+    <!-- Board -->
+    <div id="board-container"
+         class="board-container"
+         role="region"
+         aria-label="Plateau de jeu"
+         aria-describedby="board-instructions">
+    </div>
+    <p id="board-instructions" class="sr-only">
+      Utilisez Tab pour naviguer entre les chevaux déplaçables, puis Entrée ou Espace pour sélectionner.
+    </p>
+
+    <!-- Dice button -->
+    <footer class="game-footer" role="contentinfo">
+      <button id="btn-dice"
+              class="btn-dice"
+              type="button"
+              aria-label="Lancer le dé"
+              aria-describedby="dice-help">
+        <span id="dice-face" class="dice-face" aria-hidden="true">⚀</span>
+        <span class="dice-label">Lancer le dé</span>
+      </button>
+      <p id="dice-help" class="sr-only">Appuyez pour lancer le dé à six faces</p>
+    </footer>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 4 – Winner
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-winner" class="screen screen-winner" role="dialog" aria-modal="true" aria-labelledby="winner-title" hidden>
+    <div class="winner-card">
+      <p class="winner-trophy" aria-hidden="true">🏆</p>
+      <h2 id="winner-title" class="winner-title">Victoire !</h2>
+      <p class="winner-subtitle">
+        <span id="winner-name" class="winner-name"></span> a gagné la partie !
+      </p>
+      <button id="btn-restart" class="btn btn-primary btn-large" type="button">
+        Rejouer
+      </button>
+    </div>
+  </div>
+
+  <script src="bundle.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
