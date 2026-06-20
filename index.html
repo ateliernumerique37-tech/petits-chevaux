@@ -17,8 +17,10 @@
 <body>
 
   <!-- ── ARIA live regions (visually hidden) ── -->
-  <div id="aria-status" role="status" aria-live="polite"   aria-atomic="true" class="sr-only"></div>
-  <div id="aria-alert"  role="alert"  aria-live="assertive" aria-atomic="true" class="sr-only"></div>
+  <!-- Two polite regions alternated to force re-read of identical messages -->
+  <div id="aria-status-a" role="status" aria-live="polite"   aria-atomic="true" class="sr-only"></div>
+  <div id="aria-status-b" role="status" aria-live="polite"   aria-atomic="true" class="sr-only"></div>
+  <div id="aria-alert"    role="alert"  aria-live="assertive" aria-atomic="true" class="sr-only"></div>
 
   <!-- ══════════════════════════════════════════════════════════
        SCREEN 1 – Setup
@@ -90,6 +92,7 @@
     </div>
     <p id="board-instructions" class="sr-only">
       Utilisez Tab pour naviguer entre les chevaux déplaçables, puis Entrée ou Espace pour sélectionner.
+      Raccourcis clavier Alt+Maj : D pour lancer le dé, 1 à 4 pour choisir un cheval, S pour lire la situation, R pour répéter la dernière annonce.
     </p>
 
     <!-- Dice + utility buttons -->

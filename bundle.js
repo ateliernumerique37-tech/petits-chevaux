@@ -725,21 +725,29 @@
     $("btn-restart").addEventListener("click", onRestart);
   }
   var lastAnnouncement = "";
+  var politeToggle = false;
   function announce(message, urgent = false) {
     lastAnnouncement = message;
-    const region = $(urgent ? "aria-alert" : "aria-status");
-    region.textContent = "";
-    requestAnimationFrame(() => {
-      region.textContent = message;
-    });
+    if (urgent) {
+      const region = $("aria-alert");
+      region.textContent = "";
+      requestAnimationFrame(() => {
+        region.textContent = message;
+      });
+    } else {
+      politeToggle = !politeToggle;
+      const activeId = politeToggle ? "aria-status-a" : "aria-status-b";
+      const inactiveId = politeToggle ? "aria-status-b" : "aria-status-a";
+      $(inactiveId).textContent = "";
+      const active = $(activeId);
+      active.textContent = "";
+      requestAnimationFrame(() => {
+        active.textContent = message;
+      });
+    }
   }
   function repeatLastAnnouncement() {
-    if (!lastAnnouncement) return;
-    const region = $("aria-status");
-    region.textContent = "";
-    requestAnimationFrame(() => {
-      region.textContent = lastAnnouncement;
-    });
+    if (lastAnnouncement) announce(lastAnnouncement);
   }
   function initRepeatButton(onClick) {
     $("btn-repeat").addEventListener("click", onClick);
@@ -753,6 +761,7 @@
   var state = null;
   var aiPlayers = /* @__PURE__ */ new Set();
   var sessionScores = {};
+  var shortcutsAnnounced = false;
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
     createBoard(document.getElementById("board-container"));
@@ -765,8 +774,42 @@
       if (!state) return;
       announce(getFullSituation(state));
     });
+    document.addEventListener("keydown", handleKeyboard);
     showScreen("setup");
   });
+  function handleKeyboard(e) {
+    if (!e.altKey || !e.shiftKey) return;
+    if (e.ctrlKey || e.metaKey) return;
+    switch (e.code) {
+      case "KeyD":
+        if (state && state.phase === "rolling" && !aiPlayers.has(state.currentColor)) {
+          e.preventDefault();
+          const btn = document.getElementById("btn-dice");
+          if (!btn.disabled) onDiceClick();
+        }
+        break;
+      case "Digit1":
+      case "Digit2":
+      case "Digit3":
+      case "Digit4":
+        if (state && state.phase === "selecting" && !aiPlayers.has(state.currentColor)) {
+          e.preventDefault();
+          const id = parseInt(e.code.replace("Digit", "")) - 1;
+          if (state.validMoveIds.includes(id)) onHorseSelected(id);
+        }
+        break;
+      case "KeyS":
+        if (state) {
+          e.preventDefault();
+          announce(getFullSituation(state));
+        }
+        break;
+      case "KeyR":
+        e.preventDefault();
+        repeatLastAnnouncement();
+        break;
+    }
+  }
   async function startGame(playerCount, isAiMode) {
     unlockAudio();
     state = createGame(playerCount);
@@ -780,6 +823,10 @@
     initHorses(state.horses);
     await showPassPhone(state.currentColor, () => play("pass-phone"));
     showScreen("game");
+    if (!shortcutsAnnounced) {
+      shortcutsAnnounced = true;
+      announce("Raccourcis Alt+Maj disponibles : D pour le d\xE9, 1 \xE0 4 pour un cheval, S pour la situation, R pour r\xE9p\xE9ter.", true);
+    }
     beginTurn();
   }
   function beginTurn() {
