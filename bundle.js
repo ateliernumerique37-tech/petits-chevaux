@@ -670,33 +670,6 @@
       onStart(count, aiMode);
     });
   }
-  var passResolve = null;
-  function showPassPhone(color, onShown) {
-    return new Promise((resolve) => {
-      passResolve = resolve;
-      const pal = {
-        red: "#c62828",
-        green: "#2e7d32",
-        yellow: "#f57f17",
-        blue: "#1565c0"
-      };
-      const screen = $("screen-pass");
-      screen.style.setProperty("--pass-color", pal[color]);
-      $("pass-player-name").textContent = COLOR_NAMES[color];
-      $("pass-player-name").style.color = pal[color];
-      showScreen("pass");
-      if (onShown) onShown();
-      announce(`Passez le t\xE9l\xE9phone au joueur ${COLOR_NAMES[color]}`, true);
-    });
-  }
-  function initPassScreen() {
-    $("btn-ready").addEventListener("click", () => {
-      if (passResolve) {
-        passResolve();
-        passResolve = null;
-      }
-    });
-  }
   function updateTurnBanner(color, phase, diceValue) {
     const pal = {
       red: "#c62828",
@@ -810,7 +783,6 @@
     loadSounds();
     createBoard(document.getElementById("board-container"));
     initSetupScreen(startGame);
-    initPassScreen();
     initDiceButton(onDiceClick);
     initWinnerScreen(() => showScreen("setup"));
     initRepeatButton(repeatLastAnnouncement);
@@ -854,7 +826,7 @@
         break;
     }
   }
-  async function startGame(playerCount, isAiMode) {
+  function startGame(playerCount, isAiMode) {
     unlockAudio();
     state = createGame(playerCount);
     aiPlayers = /* @__PURE__ */ new Set();
@@ -865,7 +837,6 @@
       if (!(color in sessionScores)) sessionScores[color] = 0;
     });
     initHorses(state.horses);
-    await showPassPhone(state.currentColor, () => play("pass-phone"));
     showScreen("game");
     if (!shortcutsAnnounced) {
       shortcutsAnnounced = true;
@@ -887,6 +858,7 @@
     } else {
       setDiceEnabled(true);
       announce(`Tour de ${colorName}. ${summary}. Lancez le d\xE9.`);
+      setTimeout(() => document.getElementById("btn-dice").focus(), 50);
     }
   }
   function aiPlayTurn() {
@@ -1037,20 +1009,13 @@
     const extraTurn = dice === 6 || hadCapture;
     setTimeout(() => endTurn(extraTurn), 600);
   }
-  async function endTurn(extraTurn) {
+  function endTurn(extraTurn) {
     if (extraTurn) {
       announce(`${playerLabel(state.currentColor)} rejoue !`);
       beginTurn();
       return;
     }
     advanceTurn(state);
-    if (aiPlayers.has(state.currentColor)) {
-      showScreen("game");
-      beginTurn();
-    } else {
-      await showPassPhone(state.currentColor, () => play("pass-phone"));
-      showScreen("game");
-      beginTurn();
-    }
+    beginTurn();
   }
 })();
