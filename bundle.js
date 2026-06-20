@@ -219,6 +219,66 @@
     state2.phase = "pass-phone";
     state2.consecutiveSixes = 0;
   }
+  function getTurnSummary(state2) {
+    const horses = state2.horses.filter((h) => h.color === state2.currentColor);
+    const parts = [];
+    const stableCount = horses.filter((h) => h.relPos === -1).length;
+    if (stableCount > 0) parts.push(`${stableCount} en \xE9curie`);
+    horses.filter((h) => h.relPos >= 0 && h.relPos <= 51).forEach((h) => {
+      const abs = getAbsPos(h);
+      const safe = SAFE_ABS.has(abs) ? " prot\xE9g\xE9e" : "";
+      parts.push(`case ${abs + 1}${safe}`);
+    });
+    horses.filter((h) => h.relPos >= 52 && h.relPos < FINISHED_REL).forEach((h) => {
+      parts.push(`couloir case ${h.relPos - 51}`);
+    });
+    const finishedCount = horses.filter((h) => h.relPos === FINISHED_REL).length;
+    if (finishedCount > 0) parts.push(`${finishedCount} au centre`);
+    return parts.join(", ");
+  }
+  function getFullSituation(state2) {
+    return state2.players.map((color) => {
+      const name = COLOR_NAMES[color];
+      const horses = state2.horses.filter((h) => h.color === color);
+      const parts = [];
+      const stableCount = horses.filter((h) => h.relPos === -1).length;
+      if (stableCount > 0) parts.push(`${stableCount} en \xE9curie`);
+      horses.filter((h) => h.relPos >= 0 && h.relPos <= 51).forEach((h) => {
+        const abs = getAbsPos(h);
+        const safe = SAFE_ABS.has(abs) ? " prot\xE9g\xE9e" : "";
+        parts.push(`case ${abs + 1}${safe}`);
+      });
+      horses.filter((h) => h.relPos >= 52 && h.relPos < FINISHED_REL).forEach((h) => {
+        parts.push(`couloir case ${h.relPos - 51}`);
+      });
+      const finishedCount = horses.filter((h) => h.relPos === FINISHED_REL).length;
+      if (finishedCount > 0) parts.push(`${finishedCount} au centre`);
+      return `${name} : ${parts.join(", ")}`;
+    }).join(". ");
+  }
+  function getAIMove(state2, dice) {
+    const ids = getValidMoves(state2, dice);
+    if (ids.length === 0) return null;
+    for (const id of ids) {
+      const horse = state2.horses.find((h) => h.color === state2.currentColor && h.id === id);
+      if (horse.relPos === -1) continue;
+      const newRelPos = horse.relPos + dice;
+      if (newRelPos >= 0 && newRelPos <= 51) {
+        const newAbs = (START[state2.currentColor] + newRelPos) % 52;
+        if (!SAFE_ABS.has(newAbs)) {
+          const hasTarget = state2.horses.some(
+            (h) => h.color !== state2.currentColor && h.relPos >= 0 && h.relPos <= 51 && (START[h.color] + h.relPos) % 52 === newAbs
+          );
+          if (hasTarget) return id;
+        }
+      }
+    }
+    const onTrack = ids.map((id) => state2.horses.find((h) => h.color === state2.currentColor && h.id === id)).filter((h) => h.relPos >= 0);
+    if (onTrack.length > 0) {
+      return onTrack.reduce((best, h) => h.relPos > best.relPos ? h : best).id;
+    }
+    return ids[0];
+  }
 
   // js/board.js
   var NS = "http://www.w3.org/2000/svg";
@@ -570,7 +630,8 @@
     const startBtn = $("btn-start");
     startBtn.addEventListener("click", () => {
       const count = parseInt($("player-count").value, 10);
-      onStart(count);
+      const aiMode = $("ai-mode").value === "ai";
+      onStart(count, aiMode);
     });
   }
   var passResolve = null;
@@ -642,7 +703,7 @@
       }
     }, 80);
   }
-  function showWinner(color) {
+  function showWinner(color, scores) {
     $("winner-name").textContent = COLOR_NAMES[color];
     $("winner-name").style.color = {
       red: "#c62828",
@@ -650,23 +711,48 @@
       yellow: "#f57f17",
       blue: "#1565c0"
     }[color];
+    const scoresEl = $("winner-scores");
+    if (scores) {
+      const parts = Object.entries(scores).filter(([, s]) => s > 0).map(([c, s]) => `${COLOR_NAMES[c]}: ${s} victoire${s > 1 ? "s" : ""}`);
+      scoresEl.textContent = parts.length > 0 ? `Scores: ${parts.join(", ")}` : "";
+    } else {
+      scoresEl.textContent = "";
+    }
     showScreen("winner");
     announce(`Victoire ! ${COLOR_NAMES[color]} a gagn\xE9 la partie !`, true);
   }
   function initWinnerScreen(onRestart) {
     $("btn-restart").addEventListener("click", onRestart);
   }
+  var lastAnnouncement = "";
   function announce(message, urgent = false) {
+    lastAnnouncement = message;
     const region = $(urgent ? "aria-alert" : "aria-status");
     region.textContent = "";
     requestAnimationFrame(() => {
       region.textContent = message;
     });
   }
+  function repeatLastAnnouncement() {
+    if (!lastAnnouncement) return;
+    const region = $("aria-status");
+    region.textContent = "";
+    requestAnimationFrame(() => {
+      region.textContent = lastAnnouncement;
+    });
+  }
+  function initRepeatButton(onClick) {
+    $("btn-repeat").addEventListener("click", onClick);
+  }
+  function initSituationButton(onClick) {
+    $("btn-situation").addEventListener("click", onClick);
+  }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
   // js/main.js
   var state = null;
+  var aiPlayers = /* @__PURE__ */ new Set();
+  var sessionScores = {};
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
     createBoard(document.getElementById("board-container"));
@@ -674,11 +760,23 @@
     initPassScreen();
     initDiceButton(onDiceClick);
     initWinnerScreen(() => showScreen("setup"));
+    initRepeatButton(repeatLastAnnouncement);
+    initSituationButton(() => {
+      if (!state) return;
+      announce(getFullSituation(state));
+    });
     showScreen("setup");
   });
-  async function startGame(playerCount) {
+  async function startGame(playerCount, isAiMode) {
     unlockAudio();
     state = createGame(playerCount);
+    aiPlayers = /* @__PURE__ */ new Set();
+    if (isAiMode) {
+      state.players.slice(1).forEach((color) => aiPlayers.add(color));
+    }
+    state.players.forEach((color) => {
+      if (!(color in sessionScores)) sessionScores[color] = 0;
+    });
     initHorses(state.horses);
     await showPassPhone(state.currentColor, () => play("pass-phone"));
     showScreen("game");
@@ -689,8 +787,58 @@
     state.lastDice = null;
     state.validMoveIds = [];
     updateTurnBanner(state.currentColor, state.phase, null);
-    setDiceEnabled(true);
-    announce(`Tour de ${COLOR_NAMES[state.currentColor]}. Lancez le d\xE9.`);
+    const colorName = COLOR_NAMES[state.currentColor];
+    const summary = getTurnSummary(state);
+    if (aiPlayers.has(state.currentColor)) {
+      setDiceEnabled(false);
+      announce(`Intelligence artificielle joue pour ${colorName}. ${summary}.`);
+      setTimeout(aiPlayTurn, 1800);
+    } else {
+      setDiceEnabled(true);
+      announce(`Tour de ${colorName}. ${summary}. Lancez le d\xE9.`);
+    }
+  }
+  function aiPlayTurn() {
+    play("dice-roll");
+    const value = rollDice();
+    state.lastDice = value;
+    animateDice(value, () => {
+      if (value === 6) state.consecutiveSixes++;
+      else state.consecutiveSixes = 0;
+      if (state.consecutiveSixes >= 3) {
+        state.consecutiveSixes = 0;
+        play("pass-turn");
+        updateTurnBanner(state.currentColor, state.phase, value);
+        const penalized = applyTripleSixPenalty(state);
+        if (penalized) {
+          moveHorse(penalized);
+          announce(
+            `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de l'IA perdu.`,
+            true
+          );
+        } else {
+          announce(`Trois 6 de suite ! Tour de l'IA perdu.`, true);
+        }
+        setTimeout(() => endTurn(false), 2e3);
+        return;
+      }
+      if (value === 6) play("dice-six");
+      const ids = getValidMoves(state, value);
+      state.validMoveIds = ids;
+      updateTurnBanner(state.currentColor, state.phase, value);
+      if (ids.length === 0) {
+        announce(`${COLOR_NAMES[state.currentColor]} (IA) lance ${value}. Aucun mouvement possible.`, true);
+        play("pass-turn");
+        setTimeout(() => endTurn(false), 1200);
+        return;
+      }
+      state.phase = "selecting";
+      announce(`${COLOR_NAMES[state.currentColor]} (IA) lance ${value}.`);
+      setTimeout(() => {
+        const chosenId = getAIMove(state, value);
+        onHorseSelected(chosenId);
+      }, 800);
+    });
   }
   function onDiceClick() {
     if (state.phase !== "rolling") return;
@@ -700,11 +848,8 @@
     const value = rollDice();
     state.lastDice = value;
     animateDice(value, () => {
-      if (value === 6) {
-        state.consecutiveSixes++;
-      } else {
-        state.consecutiveSixes = 0;
-      }
+      if (value === 6) state.consecutiveSixes++;
+      else state.consecutiveSixes = 0;
       if (state.consecutiveSixes >= 3) {
         state.consecutiveSixes = 0;
         play("pass-turn");
@@ -775,8 +920,9 @@
         const captured = state.horses.find((h) => h.color === ev.capturedColor && h.id === ev.capturedId);
         moveHorse(captured);
         play("capture");
+        const replayMsg = aiPlayers.has(ev.byColor) ? "L'IA rejoue !" : "Vous rejouez !";
         announce(
-          `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. Vous rejouez !`,
+          `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. ${replayMsg}`,
           true
         );
       }
@@ -785,9 +931,10 @@
         announce(`${COLOR_NAMES[ev.color]} entre dans le couloir d'arriv\xE9e !`);
       }
       if (ev.type === "win") {
+        sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
         setTimeout(() => {
           play("victory");
-          showWinner(ev.color);
+          showWinner(ev.color, sessionScores);
         }, 600);
         return;
       }
@@ -802,8 +949,13 @@
       return;
     }
     advanceTurn(state);
-    await showPassPhone(state.currentColor, () => play("pass-phone"));
-    showScreen("game");
-    beginTurn();
+    if (aiPlayers.has(state.currentColor)) {
+      showScreen("game");
+      beginTurn();
+    } else {
+      await showPassPhone(state.currentColor, () => play("pass-phone"));
+      showScreen("game");
+      beginTurn();
+    }
   }
 })();

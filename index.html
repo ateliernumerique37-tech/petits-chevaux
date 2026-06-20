@@ -38,6 +38,15 @@
         <p id="player-count-hint" class="hint">Chaque joueur joue à son tour en passant le téléphone.</p>
       </div>
 
+      <div class="form-group">
+        <label for="ai-mode" class="label">Mode de jeu</label>
+        <select id="ai-mode" class="select" aria-describedby="ai-mode-hint">
+          <option value="human">Tous joueurs humains</option>
+          <option value="ai">1 joueur humain contre l'IA</option>
+        </select>
+        <p id="ai-mode-hint" class="hint">En mode IA, vous jouez Rouge et les autres couleurs sont contrôlées par l'ordinateur.</p>
+      </div>
+
       <button id="btn-start" class="btn btn-primary btn-large" type="button">
         Lancer la partie
       </button>
@@ -83,7 +92,7 @@
       Utilisez Tab pour naviguer entre les chevaux déplaçables, puis Entrée ou Espace pour sélectionner.
     </p>
 
-    <!-- Dice button -->
+    <!-- Dice + utility buttons -->
     <footer class="game-footer" role="contentinfo">
       <button id="btn-dice"
               class="btn-dice"
@@ -93,6 +102,16 @@
         <span id="dice-face" class="dice-face" aria-hidden="true">⚀</span>
         <span class="dice-label">Lancer le dé</span>
       </button>
+      <div class="game-actions-row">
+        <button id="btn-situation" class="btn-secondary" type="button"
+                aria-label="Lire la situation du jeu pour tous les joueurs">
+          Situation
+        </button>
+        <button id="btn-repeat" class="btn-secondary" type="button"
+                aria-label="Répéter la dernière annonce du lecteur d'écran">
+          Répéter
+        </button>
+      </div>
       <p id="dice-help" class="sr-only">Appuyez pour lancer le dé à six faces</p>
     </footer>
   </div>
@@ -107,6 +126,7 @@
       <p class="winner-subtitle">
         <span id="winner-name" class="winner-name"></span> a gagné la partie !
       </p>
+      <p id="winner-scores" class="winner-scores" aria-live="polite"></p>
       <button id="btn-restart" class="btn btn-primary btn-large" type="button">
         Rejouer
       </button>
@@ -117,7 +137,12 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+        navigator.serviceWorker.register('service-worker.js').then(reg => {
+          const prevController = navigator.serviceWorker.controller;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (prevController) window.location.reload();
+          });
+        }).catch(() => {});
       });
     }
   </script>
