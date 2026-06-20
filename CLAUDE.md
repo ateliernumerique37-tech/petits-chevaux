@@ -366,6 +366,23 @@ invalider l'ancienne version et forcer l'installation du nouveau SW.
 - `.game-footer` en colonne : bouton dé en haut, puis `.game-actions-row` (Situation + Répéter)
 - `.btn-secondary` : boutons discrets pour les actions utilitaires (44px min-height pour touch)
 
+### Responsive — `.screen-game` en CSS Grid
+
+L'écran de jeu utilise une **grille** (`grid-template-areas`) qui s'adapte à tout écran :
+- **Portrait / grand écran** : colonne unique `header / log / board / footer`, plafonnée à
+  `max-width: 600px` et centrée (`margin-inline: auto`) — sur desktop/tablette l'app est une
+  colonne propre au centre, pas une interface mobile étirée.
+- **Paysage** (`@media (orientation: landscape) and (max-height: 600px)`) : passe en deux
+  colonnes `board | sidebar` — le plateau occupe toute la hauteur à gauche, l'en-tête + le
+  journal (défilable, `1fr`) + les contrôles s'empilent à droite. Exploite la largeur au lieu
+  d'écraser le plateau.
+- **Taille du plateau** : `#board-svg { width/height: min(100cqw, 100cqh) }` — le plus grand
+  **carré** qui tient dans `.board-container` (`container-type: size`), quelle que soit
+  l'orientation. Repli `92vmin` pour les navigateurs sans unités container-query.
+  > Le carré exact garantit que l'ombre portée et les coins arrondis épousent le plateau
+  > (ne pas revenir à `height:100%` + `aspect-ratio` : la boîte SVG devient rectangulaire sur
+  > les conteneurs non carrés et l'ombre se décolle du plateau).
+
 ---
 
 ## Règles du jeu — `regles.html`
