@@ -95,7 +95,7 @@ Contient tout l'état et les règles du jeu. Toutes les fonctions sont pures ou 
 
 | Fonction | Rôle |
 |---|---|
-| `createGame(playerCount)` | Crée l'état initial |
+| `createGame(playerCount, winMode)` | Crée l'état initial. `winMode` : `'all'` (4 chevaux, défaut/officiel) ou `'one'` (1 cheval, partie rapide) |
 | `rollDice()` | Retourne 1–6 |
 | `getValidMoves(state, dice)` | Retourne les `id` des chevaux déplaçables |
 | `applyMove(state, horseId, dice)` | Applique le mouvement, retourne un tableau d'événements |
@@ -106,6 +106,15 @@ Contient tout l'état et les règles du jeu. Toutes les fonctions sont pures ou 
 | `getTurnSummary(state)` | Résumé des positions du joueur actif (annoncé en début de tour) |
 | `getFullSituation(state)` | Positions de tous les joueurs (bouton Situation) |
 | `getAIMove(state, dice)` | Décision stratégique de Bernard |
+
+**Condition de victoire (`winMode`, choisie à l'écran de config)** — les deux variantes existent
+dans les règles traditionnelles (recherche confirmée juin 2026 : sources partagées) :
+- `'all'` (défaut, **règle officielle**) : victoire quand **les 4 chevaux** de la couleur sont au
+  centre (`relPos === 58`). `applyMove` ne pousse l'événement `win` que si
+  `horses.every(h => h.color !== currentColor || h.relPos === FINISHED_REL)`.
+- `'one'` (**partie rapide**) : victoire dès qu'**un** cheval atteint le centre.
+
+Sélecteur `#win-mode` dans le setup → `initSetupScreen` → `startGame(count, ai, winMode)` → `createGame`.
 
 **Événements retournés par `applyMove` :**
 ```js

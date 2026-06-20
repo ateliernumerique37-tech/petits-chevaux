@@ -29,7 +29,8 @@ export function initSetupScreen(onStart) {
   startBtn.addEventListener('click', () => {
     const count = parseInt($('player-count').value, 10);
     const aiMode = $('ai-mode').value === 'ai';
-    onStart(count, aiMode);
+    const winMode = $('win-mode').value; // 'all' | 'one'
+    onStart(count, aiMode, winMode);
   });
 }
 

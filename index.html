@@ -49,6 +49,15 @@
         <p id="ai-mode-hint" class="hint">Vous jouez Rouge, Bernard contrôle les autres couleurs.</p>
       </div>
 
+      <div class="form-group">
+        <label for="win-mode" class="label">Condition de victoire</label>
+        <select id="win-mode" class="select" aria-describedby="win-mode-hint">
+          <option value="all">Amener ses 4 chevaux au centre (règle officielle)</option>
+          <option value="one">Un seul cheval au centre (partie rapide)</option>
+        </select>
+        <p id="win-mode-hint" class="hint">Règle traditionnelle : les 4 chevaux. Partie rapide : le premier cheval arrivé gagne.</p>
+      </div>
+
       <button id="btn-start" class="btn btn-primary btn-large" type="button">
         Lancer la partie
       </button>

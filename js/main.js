@@ -144,10 +144,10 @@ function handleKeyboard(e) {
 
 // ─── Game start ───────────────────────────────────────────────────────────────
 
-function startGame(playerCount, isAiMode) {
+function startGame(playerCount, isAiMode, winMode) {
   unlockAudio();
   requestMotionPermission(); // demande permission iOS si nécessaire
-  state = createGame(playerCount);
+  state = createGame(playerCount, winMode);
 
   aiPlayers = new Set();
   if (isAiMode) {

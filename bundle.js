@@ -72,7 +72,7 @@
   var COLOR_ORDER = ["red", "green", "yellow", "blue"];
   var SAFE_ABS = /* @__PURE__ */ new Set([0, 13, 26, 39]);
   var FINISHED_REL = 58;
-  function createGame(playerCount) {
+  function createGame(playerCount, winMode = "all") {
     const players = COLOR_ORDER.slice(0, playerCount);
     const horses = players.flatMap(
       (color) => [0, 1, 2, 3].map((id) => ({ color, id, relPos: -1 }))
@@ -83,6 +83,7 @@
       currentColor: players[0],
       phase: "rolling",
       // rolling | selecting | pass-phone | game-over
+      winMode: winMode === "one" ? "one" : "all",
       winner: null,
       lastDice: null,
       validMoveIds: [],
@@ -196,9 +197,12 @@
       }
     }
     if (horse.relPos === FINISHED_REL) {
-      state2.phase = "game-over";
-      state2.winner = currentColor;
-      events.push({ type: "win", color: currentColor });
+      const won = state2.winMode === "one" || horses.every((h) => h.color !== currentColor || h.relPos === FINISHED_REL);
+      if (won) {
+        state2.phase = "game-over";
+        state2.winner = currentColor;
+        events.push({ type: "win", color: currentColor });
+      }
     }
     return events;
   }
@@ -768,7 +772,8 @@
     startBtn.addEventListener("click", () => {
       const count = parseInt($("player-count").value, 10);
       const aiMode = $("ai-mode").value === "ai";
-      onStart(count, aiMode);
+      const winMode = $("win-mode").value;
+      onStart(count, aiMode, winMode);
     });
   }
   function updateTurnBanner(color, phase, diceValue) {
@@ -1009,10 +1014,10 @@
         break;
     }
   }
-  function startGame(playerCount, isAiMode) {
+  function startGame(playerCount, isAiMode, winMode) {
     unlockAudio();
     requestMotionPermission();
-    state = createGame(playerCount);
+    state = createGame(playerCount, winMode);
     aiPlayers = /* @__PURE__ */ new Set();
     if (isAiMode) {
       state.players.slice(1).forEach((color) => aiPlayers.add(color));
