@@ -313,6 +313,22 @@ html, body {
 
 .btn-secondary:active { transform: scale(0.97); }
 
+.btn-quit {
+  background: transparent;
+  color: #b71c1c;
+  border: none;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  min-height: var(--min-touch);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.btn-quit:hover { color: #d32f2f; }
+.btn-quit:active { opacity: 0.7; }
+
 /* ── Dice button ──────────────────────────────────────────────────────────── */
 .btn-dice {
   display: flex;

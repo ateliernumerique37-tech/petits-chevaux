@@ -768,6 +768,9 @@
   function initSituationButton(onClick) {
     $("btn-situation").addEventListener("click", onClick);
   }
+  function initQuitButton(onClick) {
+    $("btn-quit").addEventListener("click", onClick);
+  }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
   // js/main.js
@@ -789,6 +792,10 @@
     initSituationButton(() => {
       if (!state) return;
       announce(getFullSituation(state));
+    });
+    initQuitButton(() => {
+      state = null;
+      showScreen("setup");
     });
     document.addEventListener("keydown", handleKeyboard);
     showScreen("setup");

@@ -11,7 +11,7 @@ import {
   showScreen, initSetupScreen, initDiceButton,
   updateTurnBanner, setDiceEnabled, animateDice,
   showWinner, initWinnerScreen, announce,
-  repeatLastAnnouncement, initRepeatButton, initSituationButton,
+  repeatLastAnnouncement, initRepeatButton, initSituationButton, initQuitButton,
 } from './ui.js';
 
 let state = null;
@@ -39,6 +39,10 @@ window.addEventListener('DOMContentLoaded', () => {
   initSituationButton(() => {
     if (!state) return;
     announce(getFullSituation(state));
+  });
+  initQuitButton(() => {
+    state = null;
+    showScreen('setup');
   });
 
   document.addEventListener('keydown', handleKeyboard);
