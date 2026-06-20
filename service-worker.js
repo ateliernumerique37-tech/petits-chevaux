@@ -1,15 +1,11 @@
-const CACHE = 'petits-chevaux-v1';
+const CACHE = 'petits-chevaux-v2';
 
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './manifest.json',
-  './js/main.js',
-  './js/game.js',
-  './js/board.js',
-  './js/sound.js',
-  './js/ui.js',
+  './bundle.js',
   './sounds/dice-roll.mp3',
   './sounds/dice-six.mp3',
   './sounds/move.mp3',
