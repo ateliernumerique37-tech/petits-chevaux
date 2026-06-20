@@ -321,12 +321,13 @@
   var CS = 40;
   var W = 15 * CS;
   var PALETTE = {
-    red: { main: "#c62828", light: "#ef9a9a", stable: "#ffcdd2", dark: "#7f0000", text: "#b71c1c" },
-    green: { main: "#2e7d32", light: "#a5d6a7", stable: "#c8e6c9", dark: "#1b5e20", text: "#1b5e20" },
-    yellow: { main: "#f57f17", light: "#fff176", stable: "#fffde7", dark: "#bc5100", text: "#e65100" },
-    blue: { main: "#1565c0", light: "#90caf9", stable: "#bbdefb", dark: "#003c8f", text: "#0d47a1" }
+    red: { light: "#ff6f60", main: "#c62828", dark: "#8e0000", tint: "#ffe2de", pen: "#f7b8b0" },
+    green: { light: "#60ad5e", main: "#2e7d32", dark: "#005005", tint: "#dcedc8", pen: "#a5d6a7" },
+    yellow: { light: "#ffb04c", main: "#ef6c00", dark: "#b53d00", tint: "#ffe8c2", pen: "#ffcc80" },
+    blue: { light: "#5e92f3", main: "#1565c0", dark: "#003c8f", tint: "#d6e7fb", pen: "#90caf9" }
   };
   var SHAPES = { red: "circle", green: "square", yellow: "triangle", blue: "diamond" };
+  var HORSE_GLYPH = "\u265E";
   function px(col) {
     return col * CS + CS / 2;
   }
@@ -347,6 +348,7 @@
       id: "board-svg",
       "aria-label": "Plateau de Petits Chevaux"
     });
+    drawDefs();
     drawBase();
     drawStables();
     drawCross();
@@ -361,8 +363,39 @@
     container.appendChild(svg);
     return svg;
   }
+  function drawDefs() {
+    const defs = el("defs");
+    defs.appendChild(linearGrad("grad-field", "#fdf8ec", "#f3ead2", 0, 0, 0, 1));
+    defs.appendChild(linearGrad("grad-frame", "#546e7a", "#263238", 0, 0, 1, 1));
+    for (const color of COLOR_ORDER) {
+      const p = PALETTE[color];
+      defs.appendChild(linearGrad(`grad-stable-${color}`, p.tint, p.pen, 0, 0, 1, 1));
+      defs.appendChild(linearGrad(`grad-home-${color}`, p.light, p.main, 0, 0, 1, 1));
+      const rg = el("radialGradient", { id: `grad-token-${color}`, cx: "38%", cy: "32%", r: "75%" });
+      rg.appendChild(el("stop", { offset: "0%", "stop-color": p.light }));
+      rg.appendChild(el("stop", { offset: "55%", "stop-color": p.main }));
+      rg.appendChild(el("stop", { offset: "100%", "stop-color": p.dark }));
+      defs.appendChild(rg);
+    }
+    const f = el("filter", { id: "piece-shadow", x: "-40%", y: "-40%", width: "180%", height: "180%" });
+    f.appendChild(el("feDropShadow", { dx: 0, dy: 1.5, stdDeviation: 1.6, "flood-color": "#000000", "flood-opacity": 0.45 }));
+    defs.appendChild(f);
+    const gold = el("radialGradient", { id: "grad-gold", cx: "40%", cy: "35%", r: "70%" });
+    gold.appendChild(el("stop", { offset: "0%", "stop-color": "#fff3b0" }));
+    gold.appendChild(el("stop", { offset: "60%", "stop-color": "#ffd54f" }));
+    gold.appendChild(el("stop", { offset: "100%", "stop-color": "#f9a825" }));
+    defs.appendChild(gold);
+    svg.appendChild(defs);
+  }
+  function linearGrad(id, c0, c1, x1, y1, x2, y2) {
+    const g = el("linearGradient", { id, x1, y1, x2, y2 });
+    g.appendChild(el("stop", { offset: "0%", "stop-color": c0 }));
+    g.appendChild(el("stop", { offset: "100%", "stop-color": c1 }));
+    return g;
+  }
   function drawBase() {
-    svg.appendChild(el("rect", { x: 0, y: 0, width: W, height: W, fill: "#eceff1", rx: 4 }));
+    svg.appendChild(el("rect", { x: 0, y: 0, width: W, height: W, rx: 16, fill: "url(#grad-field)" }));
+    svg.appendChild(el("rect", { x: 3, y: 3, width: W - 6, height: W - 6, rx: 13, fill: "none", stroke: "url(#grad-frame)", "stroke-width": 6 }));
   }
   function drawStables() {
     const defs = [
@@ -373,62 +406,75 @@
     ];
     for (const { color, r, c } of defs) {
       const pal = PALETTE[color];
+      const x = c * CS, y = r * CS, size = 6 * CS;
       svg.appendChild(el("rect", {
-        x: c * CS + 3,
-        y: r * CS + 3,
-        width: 6 * CS - 6,
-        height: 6 * CS - 6,
-        rx: 10,
-        fill: pal.stable,
+        x: x + 5,
+        y: y + 5,
+        width: size - 10,
+        height: size - 10,
+        rx: 14,
+        fill: `url(#grad-stable-${color})`,
         stroke: pal.main,
-        "stroke-width": 2.5
+        "stroke-width": 4
+      }));
+      svg.appendChild(el("rect", {
+        x: x + 22,
+        y: y + 22,
+        width: size - 44,
+        height: size - 44,
+        rx: 10,
+        fill: "#ffffff",
+        opacity: 0.45,
+        stroke: pal.dark,
+        "stroke-width": 1,
+        "stroke-dasharray": "4 4"
       }));
       svg.appendChild(el("text", {
-        x: c * CS + 3 * CS,
-        y: r * CS + 5 * CS - 6,
+        x: x + size / 2,
+        y: y + size - 16,
         "text-anchor": "middle",
         fill: pal.dark,
-        "font-size": 13,
-        "font-weight": "bold",
+        "font-size": 15,
+        "font-weight": "800",
         "font-family": "sans-serif",
         "aria-hidden": "true"
-      }, COLOR_NAMES[color].toUpperCase()));
+      }, `${HORSE_GLYPH} ${COLOR_NAMES[color].toUpperCase()}`));
       for (const [sr, sc] of STABLE_POSITIONS[color]) {
         svg.appendChild(el("circle", {
           cx: px(sc),
           cy: py(sr),
-          r: 15,
-          fill: "white",
+          r: 16,
+          fill: "#ffffff",
           stroke: pal.main,
-          "stroke-width": 1.5,
-          opacity: 0.6,
+          "stroke-width": 2,
+          opacity: 0.85,
           "aria-hidden": "true"
         }));
       }
     }
   }
   function drawCross() {
-    svg.appendChild(el("rect", { x: 0, y: 6 * CS, width: W, height: 3 * CS, fill: "white" }));
-    svg.appendChild(el("rect", { x: 6 * CS, y: 0, width: 3 * CS, height: W, fill: "white" }));
+    svg.appendChild(el("rect", { x: 0, y: 6 * CS, width: W, height: 3 * CS, fill: "#ffffff" }));
+    svg.appendChild(el("rect", { x: 6 * CS, y: 0, width: 3 * CS, height: W, fill: "#ffffff" }));
   }
   function drawTrackCells() {
     for (let i = 0; i < TRACK.length; i++) {
       const [row, col] = TRACK[i];
       const safe = SAFE_ABS.has(i);
       svg.appendChild(el("rect", {
-        x: col * CS + 1,
-        y: row * CS + 1,
-        width: CS - 2,
-        height: CS - 2,
-        rx: 3,
-        fill: safe ? "#fff8e1" : "white",
-        stroke: "#bdbdbd",
-        "stroke-width": 1
+        x: col * CS + 1.5,
+        y: row * CS + 1.5,
+        width: CS - 3,
+        height: CS - 3,
+        rx: 5,
+        fill: safe ? "#ffe082" : "#ffffff",
+        stroke: safe ? "#f9a825" : "#90a4ae",
+        "stroke-width": safe ? 2.5 : 1.5
       }));
-      if (safe) drawStar(px(col), py(row), 10, 5);
+      if (safe) drawStar(px(col), py(row), 9, 4.2, "#f9a825", "#ff6f00");
     }
   }
-  function drawStar(x, y, outerR, innerR) {
+  function drawStar(x, y, outerR, innerR, fill, stroke) {
     const pts = [];
     for (let i = 0; i < 10; i++) {
       const a = i * Math.PI / 5 - Math.PI / 2;
@@ -437,9 +483,9 @@
     }
     svg.appendChild(el("polygon", {
       points: pts.join(" "),
-      fill: "#ffd54f",
-      stroke: "#ff8f00",
-      "stroke-width": 0.5,
+      fill,
+      stroke,
+      "stroke-width": 0.75,
       "aria-hidden": "true"
     }));
   }
@@ -448,61 +494,47 @@
       const pal = PALETTE[color];
       for (const [row, col] of HOME[color]) {
         svg.appendChild(el("rect", {
-          x: col * CS + 1,
-          y: row * CS + 1,
-          width: CS - 2,
-          height: CS - 2,
-          rx: 3,
-          fill: pal.light,
-          stroke: pal.main,
+          x: col * CS + 1.5,
+          y: row * CS + 1.5,
+          width: CS - 3,
+          height: CS - 3,
+          rx: 5,
+          fill: `url(#grad-home-${color})`,
+          stroke: pal.dark,
           "stroke-width": 1.5
         }));
       }
     }
   }
   function drawCenter() {
-    for (const [row, col] of [[6, 6], [6, 8], [8, 6], [8, 8]]) {
-      svg.appendChild(el("rect", {
-        x: col * CS,
-        y: row * CS,
-        width: CS,
-        height: CS,
-        fill: "#e0e0e0"
-      }));
-    }
-    const cx7 = 7 * CS, cy7 = 7 * CS;
-    const mid = CS / 2;
-    const triangles = [
-      { color: "red", pts: `${cx7},${cy7 + mid} ${cx7 + mid},${cy7} ${cx7},${cy7}` },
-      // top-left
-      { color: "green", pts: `${cx7 + mid},${cy7} ${cx7 + CS},${cy7} ${cx7 + mid},${cy7 + mid}` },
-      // top-right
-      { color: "yellow", pts: `${cx7 + CS},${cy7 + mid} ${cx7 + mid},${cy7 + mid} ${cx7 + CS},${cy7 + CS}` },
-      // bottom-right
-      { color: "blue", pts: `${cx7 + mid},${cy7 + mid} ${cx7},${cy7 + CS} ${cx7 + CS},${cy7 + CS}` }
+    const cx = 7 * CS + CS / 2, cy = 7 * CS + CS / 2;
+    svg.appendChild(el("rect", {
+      x: 6 * CS + 3,
+      y: 6 * CS + 3,
+      width: 3 * CS - 6,
+      height: 3 * CS - 6,
+      rx: 14,
+      fill: "#fffaf0",
+      stroke: "#cfd8dc",
+      "stroke-width": 1.5
+    }));
+    const half = 1.5 * CS;
+    const x0 = 6 * CS + 6, y0 = 6 * CS + 6, x1 = 9 * CS - 6, y1 = 9 * CS - 6;
+    const wedges = [
+      { color: "red", pts: `${x0},${y0} ${cx},${cy} ${x0},${y1}` },
+      // left
+      { color: "green", pts: `${x0},${y0} ${cx},${cy} ${x1},${y0}` },
+      // top
+      { color: "yellow", pts: `${x1},${y0} ${cx},${cy} ${x1},${y1}` },
+      // right
+      { color: "blue", pts: `${x0},${y1} ${cx},${cy} ${x1},${y1}` }
       // bottom
     ];
-    for (const { color, pts } of triangles) {
-      svg.appendChild(el("polygon", {
-        points: pts,
-        fill: PALETTE[color].main,
-        opacity: 0.85,
-        "aria-hidden": "true"
-      }));
+    for (const { color, pts } of wedges) {
+      svg.appendChild(el("polygon", { points: pts, fill: PALETTE[color].main, opacity: 0.9, "aria-hidden": "true" }));
     }
-    const starPts = [];
-    const cx = cx7 + mid, cy = cy7 + mid;
-    for (let i = 0; i < 10; i++) {
-      const a = i * Math.PI / 5 - Math.PI / 2;
-      const r = i % 2 === 0 ? 12 : 5;
-      starPts.push(`${cx + Math.cos(a) * r},${cy + Math.sin(a) * r}`);
-    }
-    svg.appendChild(el("polygon", {
-      points: starPts.join(" "),
-      fill: "white",
-      opacity: 0.9,
-      "aria-hidden": "true"
-    }));
+    svg.appendChild(el("circle", { cx, cy, r: 20, fill: "url(#grad-gold)", stroke: "#f57f17", "stroke-width": 2, "aria-hidden": "true" }));
+    drawStar(cx, cy, 13, 5.5, "#ffffff", "#f9a825");
   }
   function makeHorsePiece(horse) {
     const g = el("g", {
@@ -516,26 +548,41 @@
       "aria-pressed": "false",
       "aria-disabled": "true"
     });
-    addShape(g, horse.color, 0, 0);
+    g.appendChild(el("circle", { cx: 0, cy: 0, r: 22, fill: "none", "pointer-events": "all" }));
+    const vis = el("g", { filter: "url(#piece-shadow)", "aria-hidden": "true" });
+    addToken(vis, horse.color, horse.id);
+    g.appendChild(vis);
     return g;
   }
-  function addShape(g, color, x, y) {
-    const pal = PALETTE[color];
+  function addToken(vis, color, id) {
+    const fill = `url(#grad-token-${color})`;
     const shape = SHAPES[color];
-    g.appendChild(el("circle", { cx: x, cy: y, r: 22, fill: "none", "pointer-events": "all" }));
+    let numY = 0;
     if (shape === "circle") {
-      g.appendChild(el("circle", { cx: x, cy: y, r: 14, fill: pal.main, stroke: "white", "stroke-width": 2.5 }));
-      g.appendChild(el("circle", { cx: x - 4, cy: y - 4, r: 5, fill: "white", opacity: 0.4 }));
+      vis.appendChild(el("circle", { cx: 0, cy: 0, r: 15.5, fill, stroke: "#ffffff", "stroke-width": 2.5 }));
     } else if (shape === "square") {
-      g.appendChild(el("rect", { x: x - 13, y: y - 13, width: 26, height: 26, rx: 4, fill: pal.main, stroke: "white", "stroke-width": 2.5 }));
-      g.appendChild(el("rect", { x: x - 8, y: y - 8, width: 8, height: 8, rx: 2, fill: "white", opacity: 0.4 }));
+      vis.appendChild(el("rect", { x: -14.5, y: -14.5, width: 29, height: 29, rx: 6, fill, stroke: "#ffffff", "stroke-width": 2.5 }));
     } else if (shape === "triangle") {
-      g.appendChild(el("polygon", { points: `${x},${y - 15} ${x + 14},${y + 9} ${x - 14},${y + 9}`, fill: pal.main, stroke: "white", "stroke-width": 2.5 }));
-      g.appendChild(el("circle", { cx: x, cy: y, r: 4, fill: "white", opacity: 0.4 }));
+      vis.appendChild(el("polygon", { points: "0,-16.5 15.5,10 -15.5,10", fill, stroke: "#ffffff", "stroke-width": 2.5, "stroke-linejoin": "round" }));
+      numY = 3.5;
     } else {
-      g.appendChild(el("polygon", { points: `${x},${y - 16} ${x + 16},${y} ${x},${y + 16} ${x - 16},${y}`, fill: pal.main, stroke: "white", "stroke-width": 2.5 }));
-      g.appendChild(el("circle", { cx: x, cy: y, r: 5, fill: "white", opacity: 0.4 }));
+      vis.appendChild(el("polygon", { points: "0,-17 17,0 0,17 -17,0", fill, stroke: "#ffffff", "stroke-width": 2.5, "stroke-linejoin": "round" }));
     }
+    vis.appendChild(el("ellipse", { cx: -4.5, cy: -5.5, rx: 5.5, ry: 3.8, fill: "#ffffff", opacity: 0.45 }));
+    vis.appendChild(el("text", {
+      x: 0,
+      y: numY,
+      "text-anchor": "middle",
+      "dominant-baseline": "central",
+      "font-family": "sans-serif",
+      "font-size": 17,
+      "font-weight": "800",
+      fill: "#ffffff",
+      stroke: "rgba(0,0,0,0.35)",
+      "stroke-width": 0.6,
+      "paint-order": "stroke",
+      "aria-hidden": "true"
+    }, String(id + 1)));
   }
   function positionPiece(piece, horse, instant = false) {
     const [row, col] = getCellCoords(horse);

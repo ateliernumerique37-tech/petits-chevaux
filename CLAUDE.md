@@ -184,12 +184,31 @@ l'autre région → le lecteur relit même un message identique.
 
 ### `js/board.js` — Plateau SVG
 
-Génère un SVG 15×15 grilles dans `#board-container`. Les chevaux sont des cercles SVG
-positionnés via `getCellCoords(horse)` de `game.js`.
+Génère un SVG 15×15 (viewBox 600×600) dans `#board-container`. Rendu riche et
+très contrasté, pensé pour les malvoyants **et** pour l'attrait visuel.
+
+**Rendu visuel (tout dans `<defs>` + fonctions `draw*`) :**
+- **Cadre + champ** : `grad-field` (crème chaud) + cadre ardoise `grad-frame`. Le plateau
+  porte une ombre CSS (`#board-svg box-shadow`) et flotte sur un fond « table » en dégradé
+  radial (`.screen-game` → `--table-1`/`--table-2`, adapté clair/sombre).
+- **Écuries** : panneaux à dégradé `grad-stable-COLOR`, bordure épaisse, « enclos » pointillé,
+  label `♞ COULEUR` (glyphe cavalier d'échecs — vectoriel fiable, pas d'emoji).
+- **Piste** : cellules blanches bord gris foncé ; cases protégées en or avec étoile.
+- **Couloirs** : dégradé `grad-home-COLOR` vers le centre.
+- **Centre** : médaillon doré (`grad-gold`) + étoile, sur 4 quartiers colorés.
+- **Pions (`addToken`)** : jetons 3D brillants — dégradé radial `grad-token-COLOR`, anneau
+  blanc, reflet, **ombre portée** (filtre SVG `#piece-shadow`), et un **numéro 1-4** en gras
+  (correspond aux raccourcis Alt+Maj+1..4). La **forme diffère par couleur**
+  (cercle/carré/triangle/losange) → distinction daltonienne conservée.
+
+> Le numéro et toute la partie visuelle du pion sont `aria-hidden` : c'est l'`aria-label`
+> du `<g class="horse">` (via `getHorseDescription`) qui porte le sens pour le lecteur d'écran.
+> Structure : `<g.horse interactif>` → cible tactile 44px + `<g #piece-shadow aria-hidden>`.
+> Le halo CSS `.can-move` / `.selected` / `:focus-visible` se compose par-dessus l'ombre SVG.
 
 **Fonctions exportées :**
-- `createBoard(container)` — génère le SVG, les cellules et les zones de stables
-- `initHorses(horses)` — crée les éléments SVG pour chaque cheval
+- `createBoard(container)` — génère defs, cadre, écuries, piste, couloirs, centre
+- `initHorses(horses)` — crée les jetons SVG pour chaque cheval
 - `moveHorse(horse)` — repositionne un cheval avec animation CSS (`transition: transform 0.35s`)
 - `setMovable(color, ids, onClick)` — ajoute classe `can-move`, `tabindex="0"`, handlers
 - `clearHighlights()` — retire tous les états de sélection
