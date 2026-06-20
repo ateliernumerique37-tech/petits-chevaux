@@ -472,6 +472,16 @@
         "stroke-width": safe ? 2.5 : 1.5
       }));
       if (safe) drawStar(px(col), py(row), 9, 4.2, "#f9a825", "#ff6f00");
+      svg.appendChild(el("text", {
+        x: col * CS + 5,
+        y: row * CS + 12,
+        "text-anchor": "start",
+        fill: "#37474f",
+        "font-size": 10,
+        "font-weight": "700",
+        "font-family": "sans-serif",
+        "aria-hidden": "true"
+      }, String(i + 1)));
     }
   }
   function drawStar(x, y, outerR, innerR, fill, stroke) {

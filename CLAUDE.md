@@ -194,6 +194,9 @@ très contrasté, pensé pour les malvoyants **et** pour l'attrait visuel.
 - **Écuries** : panneaux à dégradé `grad-stable-COLOR`, bordure épaisse, « enclos » pointillé,
   label `♞ COULEUR` (glyphe cavalier d'échecs — vectoriel fiable, pas d'emoji).
 - **Piste** : cellules blanches bord gris foncé ; cases protégées en or avec étoile.
+  Chaque case du circuit porte son **numéro 1-52** (coin haut-gauche) — repère visuel
+  identique à ce que le lecteur d'écran annonce (« case 23 du circuit »), pour la parité
+  voyant/non-voyant. Les couloirs d'arrivée ne sont pas numérotés (choix de densité).
 - **Couloirs** : dégradé `grad-home-COLOR` vers le centre.
 - **Centre** : médaillon doré (`grad-gold`) + étoile, sur 4 quartiers colorés.
 - **Pions (`addToken`)** : jetons 3D brillants — dégradé radial `grad-token-COLOR`, anneau

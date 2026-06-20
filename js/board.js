@@ -168,6 +168,7 @@ function drawCross() {
   svg.appendChild(el('rect', { x: 6 * CS, y: 0, width: 3 * CS, height: W, fill: '#ffffff' }));
 }
 
+// Cases du circuit commun, numérotées 1-52 (repère partagé avec le lecteur d'écran)
 function drawTrackCells() {
   for (let i = 0; i < TRACK.length; i++) {
     const [row, col] = TRACK[i];
@@ -182,6 +183,15 @@ function drawTrackCells() {
     }));
 
     if (safe) drawStar(px(col), py(row), 9, 4.2, '#f9a825', '#ff6f00');
+
+    // Numéro de case 1-52, dans le coin haut-gauche (visible même avec un pion dessus).
+    // Repère partagé avec ce qu'annonce le lecteur d'écran ("case 23 du circuit").
+    svg.appendChild(el('text', {
+      x: col * CS + 5, y: row * CS + 12,
+      'text-anchor': 'start',
+      fill: '#37474f', 'font-size': 10, 'font-weight': '700',
+      'font-family': 'sans-serif', 'aria-hidden': 'true',
+    }, String(i + 1)));
   }
 }
 
