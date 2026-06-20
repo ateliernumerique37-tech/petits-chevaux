@@ -610,9 +610,9 @@
   }
 
   // js/sound.js
-  var pool = {};
-  var unlocked = false;
-  var SOUND_NAMES = [
+  var ctx = null;
+  var buffers = /* @__PURE__ */ new Map();
+  var SOUNDS = [
     "dice-roll",
     "dice-six",
     "move",
@@ -623,28 +623,45 @@
     "pass-turn",
     "pass-phone"
   ];
+  var fetched = /* @__PURE__ */ new Map();
   function loadSounds() {
-    for (const name of SOUND_NAMES) {
-      const audio = new Audio(`sounds/${name}.mp3`);
-      audio.preload = "auto";
-      pool[name] = audio;
+    for (const name of SOUNDS) {
+      fetched.set(
+        name,
+        fetch(`sounds/${name}.mp3`).then((r) => r.arrayBuffer()).catch(() => null)
+      );
     }
   }
   function unlockAudio() {
-    if (unlocked) return;
-    unlocked = true;
-    for (const audio of Object.values(pool)) {
-      audio.play().then(() => audio.pause()).catch(() => {
+    if (ctx) {
+      if (ctx.state === "suspended") ctx.resume().catch(() => {
       });
+      return;
     }
+    try {
+      ctx = new AudioContext();
+    } catch (e) {
+      return;
+    }
+    Promise.all(SOUNDS.map(async (name) => {
+      try {
+        const raw = await fetched.get(name);
+        if (raw) buffers.set(name, await ctx.decodeAudioData(raw));
+      } catch (e) {
+      }
+    }));
   }
   function play(name) {
-    const src = pool[name];
-    if (!src) return;
-    const clone = src.cloneNode();
-    clone.volume = 0.75;
-    clone.play().catch(() => {
+    if (!ctx || !buffers.has(name)) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {
     });
+    const src = ctx.createBufferSource();
+    src.buffer = buffers.get(name);
+    const gain = ctx.createGain();
+    gain.gain.value = 0.75;
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(0);
   }
 
   // js/ui.js
