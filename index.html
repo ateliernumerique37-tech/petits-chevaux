@@ -87,6 +87,12 @@
       <span id="dice-result" class="dice-result" aria-live="polite" aria-atomic="true"></span>
     </header>
 
+    <!-- Journal visuel des coups : permet aux voyants de rattraper d'un coup d'œil.
+         aria-hidden car les non-voyants reçoivent déjà tout en direct (régions ARIA live). -->
+    <section id="event-log" class="event-log" aria-hidden="true">
+      <ol id="event-log-list" class="event-log-list"></ol>
+    </section>
+
     <!-- Board -->
     <div id="board-container"
          class="board-container"

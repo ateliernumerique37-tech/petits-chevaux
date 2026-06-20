@@ -4,14 +4,19 @@ import {
   createGame, rollDice, getValidMoves, applyMove, advanceTurn,
   COLOR_NAMES, getMoveLabel, applyTripleSixPenalty,
   getTurnSummary, getFullSituation, getAIMove,
+  getAbsPos, FINISHED_REL,
 } from './game.js';
-import { createBoard, initHorses, moveHorse, setMovable, clearHighlights, updateHorseLabel } from './board.js';
+import {
+  createBoard, initHorses, moveHorse, setMovable, clearHighlights, updateHorseLabel,
+  markLastMoved, clearLastMoved,
+} from './board.js';
 import { loadSounds, unlockAudio, play } from './sound.js';
 import {
   showScreen, initSetupScreen, initDiceButton,
   updateTurnBanner, setDiceEnabled, animateDice,
   showWinner, initWinnerScreen, announce,
   repeatLastAnnouncement, initRepeatButton, initSituationButton, initQuitButton,
+  logEvent, clearEventLog,
 } from './ui.js';
 
 let state = null;
@@ -23,6 +28,15 @@ const AI_NAME = 'Bernard';
 
 function playerLabel(color) {
   return aiPlayers.has(color) ? `${AI_NAME} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+}
+
+// Position courte d'un cheval, pour le journal visuel ("case 23", "couloir 4", "centre", "écurie")
+function cellShort(horse) {
+  const r = horse.relPos;
+  if (r === -1) return 'écurie';
+  if (r === FINISHED_REL) return 'centre';
+  if (r >= 52) return `couloir ${r - 51}`;
+  return `case ${getAbsPos(horse) + 1}`;
 }
 
 // ─── Vibration ────────────────────────────────────────────────────────────────
@@ -145,6 +159,7 @@ function startGame(playerCount, isAiMode) {
   });
 
   initHorses(state.horses);
+  clearEventLog();
   showScreen('game');
 
   if (!shortcutsAnnounced) {
@@ -188,6 +203,8 @@ function aiPlayTurn() {
     if (value === 6) state.consecutiveSixes++;
     else state.consecutiveSixes = 0;
 
+    logEvent(`${COLOR_NAMES[state.currentColor]} lance ${value}`, state.currentColor);
+
     if (state.consecutiveSixes >= 3) {
       state.consecutiveSixes = 0;
       play('pass-turn');
@@ -196,12 +213,15 @@ function aiPlayTurn() {
       const penalized = applyTripleSixPenalty(state);
       if (penalized) {
         moveHorse(penalized);
+        markLastMoved(state.currentColor, penalized.id);
         announce(
           `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne à l'écurie. Tour de ${AI_NAME} perdu.`,
           true
         );
+        logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6 ! cheval ${penalized.id + 1} → écurie`, state.currentColor);
       } else {
         announce(`Trois 6 de suite ! Tour de ${AI_NAME} perdu.`, true);
+        logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
       }
       setTimeout(() => endTurn(false), 2000);
       return;
@@ -215,6 +235,7 @@ function aiPlayTurn() {
 
     if (ids.length === 0) {
       announce(`${playerLabel(state.currentColor)} lance ${value}. Aucun mouvement possible.`, true);
+      logEvent(`${COLOR_NAMES[state.currentColor]} : aucun mouvement`, state.currentColor);
       play('pass-turn');
       vibrate([30, 30, 30]);
       setTimeout(() => endTurn(false), 1200);
@@ -248,6 +269,8 @@ function onDiceClick() {
     if (value === 6) state.consecutiveSixes++;
     else state.consecutiveSixes = 0;
 
+    logEvent(`${COLOR_NAMES[state.currentColor]} lance ${value}`, state.currentColor);
+
     if (state.consecutiveSixes >= 3) {
       state.consecutiveSixes = 0;
       play('pass-turn');
@@ -256,12 +279,15 @@ function onDiceClick() {
       const penalized = applyTripleSixPenalty(state);
       if (penalized) {
         moveHorse(penalized);
+        markLastMoved(state.currentColor, penalized.id);
         announce(
           `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne à l'écurie. Tour perdu.`,
           true
         );
+        logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6 ! cheval ${penalized.id + 1} → écurie`, state.currentColor);
       } else {
         announce(`Trois 6 de suite ! Tour perdu.`, true);
+        logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
       }
       setTimeout(() => endTurn(false), 2000);
       return;
@@ -277,6 +303,7 @@ function onDiceClick() {
 
     if (ids.length === 0) {
       announce(`${colorName} lance ${value}. Aucun mouvement possible.`, true);
+      logEvent(`${colorName} : aucun mouvement`, state.currentColor);
       play('pass-turn');
       vibrate([30, 30, 30]);
       setTimeout(() => endTurn(false), 1200);
@@ -314,20 +341,26 @@ function onHorseSelected(horseId) {
   const events = applyMove(state, horseId, dice);
 
   let hadCapture = false;
+  let moverCell = '';
 
   for (const ev of events) {
     if (ev.type === 'exit-stable' || ev.type === 'move') {
       const horse = state.horses.find(h => h.color === ev.color && h.id === ev.horseId);
       moveHorse(horse);
+      markLastMoved(ev.color, ev.horseId);
       if (ev.bounced) {
         play('move');
         vibrate([30, 20, 30]);
+        moverCell = `couloir ${horse.relPos - 51}`;
         announce(
           `Rebond ! Cheval ${COLOR_NAMES[ev.color]} ${ev.horseId + 1} recule à la case ${horse.relPos - 51} du couloir.`
         );
+        logEvent(`${COLOR_NAMES[ev.color]} : cheval ${ev.horseId + 1} rebond → ${moverCell}`, ev.color);
       } else {
         play(ev.type);
         vibrate(ev.type === 'exit-stable' ? 80 : 30);
+        moverCell = cellShort(horse);
+        logEvent(`${COLOR_NAMES[ev.color]} : cheval ${ev.horseId + 1} → ${moverCell}`, ev.color);
       }
     }
     if (ev.type === 'capture') {
@@ -341,6 +374,10 @@ function onHorseSelected(horseId) {
         `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoyé à l'écurie. ${replayMsg}`,
         true
       );
+      logEvent(
+        `${COLOR_NAMES[ev.byColor]} capture ${COLOR_NAMES[ev.capturedColor]}${moverCell ? ' (' + moverCell + ')' : ''}`,
+        ev.byColor, true
+      );
     }
     if (ev.type === 'home-stretch') {
       play('home-stretch');
@@ -349,6 +386,7 @@ function onHorseSelected(horseId) {
     }
     if (ev.type === 'win') {
       sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
+      logEvent(`${COLOR_NAMES[ev.color]} gagne la partie !`, ev.color);
       const nameMap = {};
       state.players.forEach(c => { nameMap[c] = playerLabel(c); });
       setTimeout(() => {

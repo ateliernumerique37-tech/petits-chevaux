@@ -52,6 +52,7 @@ export function createBoard(container) {
   drawTrackCells();
   drawHomeColumns();
   drawCenter();
+  drawVignette();
 
   // Wrap all decorative board elements so screen readers skip them
   const staticLayer = el('g', { 'aria-hidden': 'true' });
@@ -88,10 +89,16 @@ function drawDefs() {
     defs.appendChild(rg);
   }
 
-  // Soft drop shadow for pieces
-  const f = el('filter', { id: 'piece-shadow', x: '-40%', y: '-40%', width: '180%', height: '180%' });
-  f.appendChild(el('feDropShadow', { dx: 0, dy: 1.5, stdDeviation: 1.6, 'flood-color': '#000000', 'flood-opacity': 0.45 }));
+  // Soft drop shadow for pieces (contact shadow → pions posés physiquement)
+  const f = el('filter', { id: 'piece-shadow', x: '-50%', y: '-50%', width: '200%', height: '200%' });
+  f.appendChild(el('feDropShadow', { dx: 0, dy: 2.4, stdDeviation: 2.2, 'flood-color': '#000000', 'flood-opacity': 0.5 }));
   defs.appendChild(f);
+
+  // Vignette douce (lumière du dessus → réalisme)
+  const vig = el('radialGradient', { id: 'grad-vignette', cx: '50%', cy: '45%', r: '62%' });
+  vig.appendChild(el('stop', { offset: '58%', 'stop-color': '#000000', 'stop-opacity': 0 }));
+  vig.appendChild(el('stop', { offset: '100%', 'stop-color': '#2a1e08', 'stop-opacity': 0.15 }));
+  defs.appendChild(vig);
 
   // Gold radial for the centre medallion
   const gold = el('radialGradient', { id: 'grad-gold', cx: '40%', cy: '35%', r: '70%' });
@@ -115,6 +122,16 @@ function drawBase() {
   svg.appendChild(el('rect', { x: 0, y: 0, width: W, height: W, rx: 16, fill: 'url(#grad-field)' }));
   // Frame border
   svg.appendChild(el('rect', { x: 3, y: 3, width: W - 6, height: W - 6, rx: 13, fill: 'none', stroke: 'url(#grad-frame)', 'stroke-width': 6 }));
+  // Inner highlight line (biseau)
+  svg.appendChild(el('rect', { x: 6.5, y: 6.5, width: W - 13, height: W - 13, rx: 10, fill: 'none', stroke: '#ffffff', 'stroke-opacity': 0.5, 'stroke-width': 1 }));
+}
+
+// Vignette par-dessus le plateau (sous les pions, qui sont dans horsesLayer)
+function drawVignette() {
+  svg.appendChild(el('rect', {
+    x: 0, y: 0, width: W, height: W, rx: 16,
+    fill: 'url(#grad-vignette)', 'pointer-events': 'none', 'aria-hidden': 'true',
+  }));
 }
 
 function drawStables() {
@@ -377,4 +394,16 @@ export function clearHighlights() {
       delete piece._pickHandler;
     }
   });
+}
+
+// Repère du dernier pion déplacé (persiste jusqu'au coup suivant)
+export function markLastMoved(color, id) {
+  clearLastMoved();
+  const piece = getHorsePiece(color, id);
+  if (piece) piece.classList.add('last-moved');
+}
+
+export function clearLastMoved() {
+  if (!horsesLayer) return;
+  horsesLayer.querySelectorAll('.horse.last-moved').forEach(p => p.classList.remove('last-moved'));
 }

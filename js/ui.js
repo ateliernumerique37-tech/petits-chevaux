@@ -177,6 +177,45 @@ export function initQuitButton(onClick) {
   $('btn-quit').addEventListener('click', onClick);
 }
 
+// ─── Journal visuel des coups ─────────────────────────────────────────────────
+
+const LOG_PAL = {
+  red: '#c62828', green: '#2e7d32', yellow: '#ef6c00', blue: '#1565c0',
+};
+
+export function clearEventLog() {
+  const list = $('event-log-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const li = document.createElement('li');
+  li.className = 'event-log-empty';
+  li.textContent = 'La partie commence…';
+  list.appendChild(li);
+}
+
+// text: action concise ; color: couleur du joueur (pour la pastille) ; capture: met en rouge
+export function logEvent(text, color, capture = false) {
+  const list = $('event-log-list');
+  if (!list) return;
+  const placeholder = list.querySelector('.event-log-empty');
+  if (placeholder) placeholder.remove();
+
+  const li = document.createElement('li');
+  if (color) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = LOG_PAL[color] || '#888';
+    li.appendChild(dot);
+  }
+  const span = document.createElement('span');
+  if (capture) span.className = 'capture';
+  span.textContent = text;
+  li.appendChild(span);
+
+  list.insertBefore(li, list.firstChild);
+  while (list.children.length > 40) list.removeChild(list.lastChild);
+}
+
 // ─── Dice face glyphs ─────────────────────────────────────────────────────────
 
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];

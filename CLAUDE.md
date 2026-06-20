@@ -179,6 +179,15 @@ l'autre région → le lecteur relit même un message identique.
 - `animateDice(finalValue, callback)` — animation de 8 ticks à 80ms
 - `showWinner(color, scores, nameMap)` — affiche l'écran de victoire avec les scores de session
 - `initWinnerScreen(onRestart)`
+- `logEvent(text, color, capture)` / `clearEventLog()` — journal visuel des coups (voir ci-dessous)
+
+**Journal visuel des coups (`#event-log`)** — bandeau sous l'en-tête qui liste les actions
+récentes (le dernier coup en gras, les précédents estompés), chacune avec une pastille de
+couleur. Permet aux **voyants de rattraper d'un coup d'œil** ce qui s'est passé pendant leur
+absence (qui a lancé quoi, qui a bougé où, qui a capturé qui). `main.js` appelle `logEvent`
+aux mêmes endroits que `announce`, avec un texte court (« Rouge : cheval 4 → case 19 »,
+« Vert capture Bleu (case 27) »). Le panneau est **`aria-hidden`** : les non-voyants
+reçoivent déjà tout en direct via les régions ARIA live, donc on évite la double annonce.
 
 ---
 
@@ -216,6 +225,12 @@ très contrasté, pensé pour les malvoyants **et** pour l'attrait visuel.
 - `setMovable(color, ids, onClick)` — ajoute classe `can-move`, `tabindex="0"`, handlers
 - `clearHighlights()` — retire tous les états de sélection
 - `updateHorseLabel(color, id, label)` — met à jour `aria-label` pendant la phase de sélection
+- `markLastMoved(color, id)` / `clearLastMoved()` — repère persistant (halo sombre) sur le
+  dernier pion déplacé, jusqu'au coup suivant ; aide un joueur revenu à localiser l'action.
+  Priorité CSS : `selected` > `can-move` > `last-moved`.
+
+**Réalisme** : ombre portée renforcée des pions (`#piece-shadow`, effet « posé »), vignette
+douce par-dessus le plateau (`drawVignette`, lumière du dessus), biseau clair sur le cadre.
 
 ---
 

@@ -355,6 +355,7 @@
     drawTrackCells();
     drawHomeColumns();
     drawCenter();
+    drawVignette();
     const staticLayer = el("g", { "aria-hidden": "true" });
     while (svg.firstChild) staticLayer.appendChild(svg.firstChild);
     svg.appendChild(staticLayer);
@@ -377,9 +378,13 @@
       rg.appendChild(el("stop", { offset: "100%", "stop-color": p.dark }));
       defs.appendChild(rg);
     }
-    const f = el("filter", { id: "piece-shadow", x: "-40%", y: "-40%", width: "180%", height: "180%" });
-    f.appendChild(el("feDropShadow", { dx: 0, dy: 1.5, stdDeviation: 1.6, "flood-color": "#000000", "flood-opacity": 0.45 }));
+    const f = el("filter", { id: "piece-shadow", x: "-50%", y: "-50%", width: "200%", height: "200%" });
+    f.appendChild(el("feDropShadow", { dx: 0, dy: 2.4, stdDeviation: 2.2, "flood-color": "#000000", "flood-opacity": 0.5 }));
     defs.appendChild(f);
+    const vig = el("radialGradient", { id: "grad-vignette", cx: "50%", cy: "45%", r: "62%" });
+    vig.appendChild(el("stop", { offset: "58%", "stop-color": "#000000", "stop-opacity": 0 }));
+    vig.appendChild(el("stop", { offset: "100%", "stop-color": "#2a1e08", "stop-opacity": 0.15 }));
+    defs.appendChild(vig);
     const gold = el("radialGradient", { id: "grad-gold", cx: "40%", cy: "35%", r: "70%" });
     gold.appendChild(el("stop", { offset: "0%", "stop-color": "#fff3b0" }));
     gold.appendChild(el("stop", { offset: "60%", "stop-color": "#ffd54f" }));
@@ -396,6 +401,19 @@
   function drawBase() {
     svg.appendChild(el("rect", { x: 0, y: 0, width: W, height: W, rx: 16, fill: "url(#grad-field)" }));
     svg.appendChild(el("rect", { x: 3, y: 3, width: W - 6, height: W - 6, rx: 13, fill: "none", stroke: "url(#grad-frame)", "stroke-width": 6 }));
+    svg.appendChild(el("rect", { x: 6.5, y: 6.5, width: W - 13, height: W - 13, rx: 10, fill: "none", stroke: "#ffffff", "stroke-opacity": 0.5, "stroke-width": 1 }));
+  }
+  function drawVignette() {
+    svg.appendChild(el("rect", {
+      x: 0,
+      y: 0,
+      width: W,
+      height: W,
+      rx: 16,
+      fill: "url(#grad-vignette)",
+      "pointer-events": "none",
+      "aria-hidden": "true"
+    }));
   }
   function drawStables() {
     const defs = [
@@ -665,6 +683,15 @@
       }
     });
   }
+  function markLastMoved(color, id) {
+    clearLastMoved();
+    const piece = getHorsePiece(color, id);
+    if (piece) piece.classList.add("last-moved");
+  }
+  function clearLastMoved() {
+    if (!horsesLayer) return;
+    horsesLayer.querySelectorAll(".horse.last-moved").forEach((p) => p.classList.remove("last-moved"));
+  }
 
   // js/sound.js
   var ctx = null;
@@ -845,6 +872,40 @@
   function initQuitButton(onClick) {
     $("btn-quit").addEventListener("click", onClick);
   }
+  var LOG_PAL = {
+    red: "#c62828",
+    green: "#2e7d32",
+    yellow: "#ef6c00",
+    blue: "#1565c0"
+  };
+  function clearEventLog() {
+    const list = $("event-log-list");
+    if (!list) return;
+    list.innerHTML = "";
+    const li = document.createElement("li");
+    li.className = "event-log-empty";
+    li.textContent = "La partie commence\u2026";
+    list.appendChild(li);
+  }
+  function logEvent(text, color, capture = false) {
+    const list = $("event-log-list");
+    if (!list) return;
+    const placeholder = list.querySelector(".event-log-empty");
+    if (placeholder) placeholder.remove();
+    const li = document.createElement("li");
+    if (color) {
+      const dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = LOG_PAL[color] || "#888";
+      li.appendChild(dot);
+    }
+    const span = document.createElement("span");
+    if (capture) span.className = "capture";
+    span.textContent = text;
+    li.appendChild(span);
+    list.insertBefore(li, list.firstChild);
+    while (list.children.length > 40) list.removeChild(list.lastChild);
+  }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
   // js/main.js
@@ -855,6 +916,13 @@
   var AI_NAME = "Bernard";
   function playerLabel(color) {
     return aiPlayers.has(color) ? `${AI_NAME} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+  }
+  function cellShort(horse) {
+    const r = horse.relPos;
+    if (r === -1) return "\xE9curie";
+    if (r === FINISHED_REL) return "centre";
+    if (r >= 52) return `couloir ${r - 51}`;
+    return `case ${getAbsPos(horse) + 1}`;
   }
   function vibrate(pattern) {
     if (navigator.vibrate) navigator.vibrate(pattern);
@@ -953,6 +1021,7 @@
       if (!(color in sessionScores)) sessionScores[color] = 0;
     });
     initHorses(state.horses);
+    clearEventLog();
     showScreen("game");
     if (!shortcutsAnnounced) {
       shortcutsAnnounced = true;
@@ -985,6 +1054,7 @@
     animateDice(value, () => {
       if (value === 6) state.consecutiveSixes++;
       else state.consecutiveSixes = 0;
+      logEvent(`${COLOR_NAMES[state.currentColor]} lance ${value}`, state.currentColor);
       if (state.consecutiveSixes >= 3) {
         state.consecutiveSixes = 0;
         play("pass-turn");
@@ -993,12 +1063,15 @@
         const penalized = applyTripleSixPenalty(state);
         if (penalized) {
           moveHorse(penalized);
+          markLastMoved(state.currentColor, penalized.id);
           announce(
             `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de ${AI_NAME} perdu.`,
             true
           );
+          logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6 ! cheval ${penalized.id + 1} \u2192 \xE9curie`, state.currentColor);
         } else {
           announce(`Trois 6 de suite ! Tour de ${AI_NAME} perdu.`, true);
+          logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
         }
         setTimeout(() => endTurn(false), 2e3);
         return;
@@ -1012,6 +1085,7 @@
       updateTurnBanner(state.currentColor, state.phase, value);
       if (ids.length === 0) {
         announce(`${playerLabel(state.currentColor)} lance ${value}. Aucun mouvement possible.`, true);
+        logEvent(`${COLOR_NAMES[state.currentColor]} : aucun mouvement`, state.currentColor);
         play("pass-turn");
         vibrate([30, 30, 30]);
         setTimeout(() => endTurn(false), 1200);
@@ -1036,6 +1110,7 @@
     animateDice(value, () => {
       if (value === 6) state.consecutiveSixes++;
       else state.consecutiveSixes = 0;
+      logEvent(`${COLOR_NAMES[state.currentColor]} lance ${value}`, state.currentColor);
       if (state.consecutiveSixes >= 3) {
         state.consecutiveSixes = 0;
         play("pass-turn");
@@ -1044,12 +1119,15 @@
         const penalized = applyTripleSixPenalty(state);
         if (penalized) {
           moveHorse(penalized);
+          markLastMoved(state.currentColor, penalized.id);
           announce(
             `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour perdu.`,
             true
           );
+          logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6 ! cheval ${penalized.id + 1} \u2192 \xE9curie`, state.currentColor);
         } else {
           announce(`Trois 6 de suite ! Tour perdu.`, true);
+          logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
         }
         setTimeout(() => endTurn(false), 2e3);
         return;
@@ -1064,6 +1142,7 @@
       updateTurnBanner(state.currentColor, state.phase, value);
       if (ids.length === 0) {
         announce(`${colorName} lance ${value}. Aucun mouvement possible.`, true);
+        logEvent(`${colorName} : aucun mouvement`, state.currentColor);
         play("pass-turn");
         vibrate([30, 30, 30]);
         setTimeout(() => endTurn(false), 1200);
@@ -1093,19 +1172,25 @@
     const dice = state.lastDice;
     const events = applyMove(state, horseId, dice);
     let hadCapture = false;
+    let moverCell = "";
     for (const ev of events) {
       if (ev.type === "exit-stable" || ev.type === "move") {
         const horse = state.horses.find((h) => h.color === ev.color && h.id === ev.horseId);
         moveHorse(horse);
+        markLastMoved(ev.color, ev.horseId);
         if (ev.bounced) {
           play("move");
           vibrate([30, 20, 30]);
+          moverCell = `couloir ${horse.relPos - 51}`;
           announce(
             `Rebond ! Cheval ${COLOR_NAMES[ev.color]} ${ev.horseId + 1} recule \xE0 la case ${horse.relPos - 51} du couloir.`
           );
+          logEvent(`${COLOR_NAMES[ev.color]} : cheval ${ev.horseId + 1} rebond \u2192 ${moverCell}`, ev.color);
         } else {
           play(ev.type);
           vibrate(ev.type === "exit-stable" ? 80 : 30);
+          moverCell = cellShort(horse);
+          logEvent(`${COLOR_NAMES[ev.color]} : cheval ${ev.horseId + 1} \u2192 ${moverCell}`, ev.color);
         }
       }
       if (ev.type === "capture") {
@@ -1119,6 +1204,11 @@
           `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. ${replayMsg}`,
           true
         );
+        logEvent(
+          `${COLOR_NAMES[ev.byColor]} capture ${COLOR_NAMES[ev.capturedColor]}${moverCell ? " (" + moverCell + ")" : ""}`,
+          ev.byColor,
+          true
+        );
       }
       if (ev.type === "home-stretch") {
         play("home-stretch");
@@ -1127,6 +1217,7 @@
       }
       if (ev.type === "win") {
         sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
+        logEvent(`${COLOR_NAMES[ev.color]} gagne la partie !`, ev.color);
         const nameMap = {};
         state.players.forEach((c) => {
           nameMap[c] = playerLabel(c);
