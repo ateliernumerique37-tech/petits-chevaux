@@ -1067,7 +1067,6 @@
   var aiPlayers = /* @__PURE__ */ new Set();
   var aiNames = {};
   var sessionScores = {};
-  var shortcutsAnnounced = false;
   var aiDifficulty = "normal";
   var turnCount = 0;
   var gameStartTime = 0;
@@ -1247,10 +1246,6 @@
     initHorses(state.horses);
     clearEventLog();
     showScreen("game");
-    if (!shortcutsAnnounced) {
-      shortcutsAnnounced = true;
-      announce("Raccourcis Alt+Maj disponibles : D pour le d\xE9, 1 \xE0 4 pour un cheval, S pour la situation, A pour r\xE9p\xE9ter.", true);
-    }
     beginTurn();
   }
   function resumeGame() {

@@ -25,7 +25,6 @@ let state = null;
 let aiPlayers = new Set();
 let aiNames = {};            // couleur IA -> prénom (Bernard, Céline, Marie…)
 const sessionScores = {};
-let shortcutsAnnounced = false;
 let aiDifficulty = 'normal';
 let turnCount = 0;
 let gameStartTime = 0;
@@ -230,10 +229,6 @@ function startGame(playerCount, isAiMode, winMode, difficulty) {
   clearEventLog();
   showScreen('game');
 
-  if (!shortcutsAnnounced) {
-    shortcutsAnnounced = true;
-    announce('Raccourcis Alt+Maj disponibles : D pour le dé, 1 à 4 pour un cheval, S pour la situation, A pour répéter.', true);
-  }
   beginTurn();
 }
 
