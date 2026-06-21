@@ -554,6 +554,149 @@ html, body {
   min-height: 1.2rem;
 }
 
+/* ── Manual theme overrides (applied via class on <html>) ────────────────── */
+html.theme-light {
+  --bg:         #f5f5f5;
+  --surface:    #ffffff;
+  --on-surface: #212121;
+  --on-surface-2: #616161;
+  --border:     #e0e0e0;
+  --shadow:     0 4px 20px rgba(0,0,0,0.12);
+  --table-1:    #eef1f4;
+  --table-2:    #cfd6de;
+}
+
+html.theme-dark {
+  --bg:         #121212;
+  --surface:    #1e1e1e;
+  --on-surface: #f5f5f5;
+  --on-surface-2: #9e9e9e;
+  --border:     #333333;
+  --shadow:     0 4px 20px rgba(0,0,0,0.5);
+  --table-1:    #1c2530;
+  --table-2:    #0a0e14;
+}
+
+/* ── Setup links row ─────────────────────────────────────────────────────── */
+.setup-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.setup-links .btn-rules-link { padding: 0.4rem 0; }
+.setup-links button.btn-rules-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+/* ── Resume button ───────────────────────────────────────────────────────── */
+.btn-resume {
+  background: #388e3c;
+  color: white;
+  box-shadow: 0 3px 12px rgba(56,142,60,0.4);
+}
+.btn-resume:hover:not(:disabled) { background: #43a047; }
+
+/* ── Theme toggle ────────────────────────────────────────────────────────── */
+.btn-theme-toggle {
+  display: block;
+  margin: 0 auto;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--on-surface-2);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 1rem;
+  min-height: var(--min-touch);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-theme-toggle:hover { background: var(--bg); color: var(--on-surface); }
+
+/* ── Stats screen ────────────────────────────────────────────────────────── */
+.stats-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 2rem 1.75rem;
+  width: min(96vw, 520px);
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.stats-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-blue);
+  flex: 1;
+}
+
+.stats-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--on-surface);
+}
+.stats-summary strong { color: var(--color-blue); }
+
+.stats-subtitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--on-surface);
+  margin-top: 0.5rem;
+}
+
+.stats-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0;
+}
+
+.stats-list li {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--on-surface-2);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-list li:last-child { border-bottom: none; }
+
+.btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: var(--color-blue);
+  border: 2px solid var(--color-blue);
+  border-radius: var(--radius-md);
+  font-family: var(--font);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.55rem 1.25rem;
+  min-height: var(--min-touch);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-back:hover { background: var(--color-blue); color: white; }
+
 /* ── Reduced motion ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .horse                   { transition: none !important; }

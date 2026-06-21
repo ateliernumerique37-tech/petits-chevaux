@@ -260,10 +260,13 @@
       return `${name} : ${parts.join(", ")}`;
     }).join(". ");
   }
-  function getAIMove(state2, dice) {
+  function getAIMove(state2, dice, difficulty = "normal") {
     const ids = getValidMoves(state2, dice);
     if (ids.length === 0) return null;
     if (ids.length === 1) return ids[0];
+    if (difficulty === "easy") {
+      return ids[Math.floor(Math.random() * ids.length)];
+    }
     const color = state2.currentColor;
     function isExposed(absPos) {
       for (const h of state2.horses) {
@@ -300,6 +303,26 @@
     const opts = ids.map(
       (id) => simulate(state2.horses.find((h) => h.color === color && h.id === id))
     );
+    if (difficulty === "hard") {
+      let best = opts[0], bestScore = -Infinity;
+      for (const o of opts) {
+        let s = o.newRel * 2;
+        if (o.wins) s += 1e4;
+        if (o.captures) s += 500;
+        if (o.entersHome) s += 200;
+        if (o.inHome && !o.bounced) s += 150 + o.newRel;
+        if (o.isSafe) s += 80;
+        if (o.isDangerous) s -= 60;
+        if (o.bounced) s -= 40;
+        if (o.wasInStable) s += 20;
+        if (!o.isDangerous && !o.isSafe && o.newAbs !== null) s += 30;
+        if (s > bestScore) {
+          bestScore = s;
+          best = o;
+        }
+      }
+      return best.id;
+    }
     const pickBest = (arr) => arr.reduce((b, o) => o.newRel > b.newRel ? o : b);
     const win = opts.find((o) => o.wins);
     if (win) return win.id;
@@ -776,8 +799,18 @@
       const count = parseInt($("player-count").value, 10);
       const aiMode = $("ai-mode").value === "ai";
       const winMode = $("win-mode").value;
-      onStart(count, aiMode, winMode);
+      const difficulty = $("ai-difficulty")?.value || "normal";
+      onStart(count, aiMode, winMode, difficulty);
     });
+    const aiSelect = $("ai-mode");
+    const diffGroup = $("difficulty-group");
+    if (aiSelect && diffGroup) {
+      const toggle = () => {
+        diffGroup.hidden = aiSelect.value !== "ai";
+      };
+      aiSelect.addEventListener("change", toggle);
+      toggle();
+    }
   }
   function updateTurnBanner(color, phase, diceValue) {
     const pal = {
@@ -914,6 +947,111 @@
     list.insertBefore(li, list.firstChild);
     while (list.children.length > 40) list.removeChild(list.lastChild);
   }
+  function initResumeButton(onResume) {
+    const btn = $("btn-resume");
+    if (btn) btn.addEventListener("click", onResume);
+  }
+  function showResumeButton(visible) {
+    const btn = $("btn-resume");
+    if (btn) btn.hidden = !visible;
+  }
+  var STATS_KEY = "petits-chevaux-stats";
+  function formatDuration(seconds) {
+    if (!seconds || seconds <= 0) return "\u2014";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return m > 0 ? `${m} min ${s} s` : `${s} s`;
+  }
+  function renderStats() {
+    const container = $("stats-content");
+    const clearBtn = $("btn-stats-clear");
+    if (!container) return;
+    let stats = [];
+    try {
+      stats = JSON.parse(localStorage.getItem(STATS_KEY) || "[]");
+    } catch {
+    }
+    if (stats.length === 0) {
+      container.innerHTML = `<p class="stats-summary" style="text-align:center">Aucune partie termin\xE9e pour l'instant.</p>`;
+      if (clearBtn) clearBtn.hidden = true;
+      return;
+    }
+    const total = stats.length;
+    const aiGames = stats.filter((s) => s.aiMode);
+    const aiWins = aiGames.filter((s) => s.winner === "red");
+    const avgDuration = Math.round(stats.reduce((a, s) => a + (s.duration || 0), 0) / total);
+    let html = '<div class="stats-summary">';
+    html += `<p><strong>${total}</strong> partie${total > 1 ? "s" : ""} termin\xE9e${total > 1 ? "s" : ""}</p>`;
+    if (aiGames.length > 0) {
+      const pct = Math.round(aiWins.length / aiGames.length * 100);
+      html += `<p>Contre l'IA : <strong>${aiWins.length}/${aiGames.length}</strong> victoire${aiWins.length > 1 ? "s" : ""} (${pct} %)</p>`;
+    }
+    html += `<p>Dur\xE9e moyenne : <strong>${formatDuration(avgDuration)}</strong></p>`;
+    html += "</div>";
+    html += '<p class="stats-subtitle">Derni\xE8res parties</p>';
+    html += '<ul class="stats-list">';
+    const recent = stats.slice(-10).reverse();
+    for (const s of recent) {
+      const date = new Date(s.date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+      const diff = { easy: "facile", normal: "normal", hard: "difficile" };
+      const mode = s.aiMode ? `IA ${diff[s.aiDifficulty] || "normal"}` : `${s.playerCount} humains`;
+      const dur = s.duration ? ` \u2014 ${formatDuration(s.duration)}` : "";
+      html += `<li>${date} \u2014 ${s.winnerLabel || s.winner} gagne (${mode})${dur}</li>`;
+    }
+    html += "</ul>";
+    container.innerHTML = html;
+    if (clearBtn) clearBtn.hidden = false;
+  }
+  function initStatsScreen(onBack) {
+    const backBtn = $("btn-stats-back");
+    if (backBtn) backBtn.addEventListener("click", onBack);
+    const statsBtn = $("btn-stats");
+    if (statsBtn) {
+      statsBtn.addEventListener("click", () => {
+        renderStats();
+        showScreen("stats");
+      });
+    }
+    const clearBtn = $("btn-stats-clear");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", () => {
+        try {
+          localStorage.removeItem(STATS_KEY);
+        } catch {
+        }
+        renderStats();
+      });
+    }
+  }
+  var THEME_KEY = "petits-chevaux-theme";
+  var THEME_LABELS = { auto: "Th\xE8me : Auto", light: "Th\xE8me : Clair", dark: "Th\xE8me : Sombre" };
+  var THEME_CYCLE = ["auto", "light", "dark"];
+  function applyThemeClass(theme) {
+    document.documentElement.classList.remove("theme-light", "theme-dark");
+    if (theme === "light") document.documentElement.classList.add("theme-light");
+    else if (theme === "dark") document.documentElement.classList.add("theme-dark");
+  }
+  function initThemeToggle() {
+    let current = "auto";
+    try {
+      current = localStorage.getItem(THEME_KEY) || "auto";
+    } catch {
+    }
+    applyThemeClass(current);
+    const btn = $("btn-theme");
+    if (!btn) return;
+    btn.textContent = THEME_LABELS[current] || THEME_LABELS.auto;
+    btn.addEventListener("click", () => {
+      const idx = THEME_CYCLE.indexOf(current);
+      current = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+      applyThemeClass(current);
+      btn.textContent = THEME_LABELS[current];
+      try {
+        localStorage.setItem(THEME_KEY, current);
+      } catch {
+      }
+    });
+  }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
   // js/main.js
@@ -922,9 +1060,62 @@
   var aiNames = {};
   var sessionScores = {};
   var shortcutsAnnounced = false;
+  var aiDifficulty = "normal";
+  var turnCount = 0;
+  var gameStartTime = 0;
   var AI_NAMES = ["Bernard", "C\xE9line", "Marie"];
+  var SAVE_KEY = "petits-chevaux-save";
+  var STATS_KEY2 = "petits-chevaux-stats";
   function playerLabel(color) {
     return aiPlayers.has(color) ? `${aiNames[color]} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+  }
+  function saveGame() {
+    if (!state || state.phase === "game-over") return;
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        state,
+        aiPlayers: [...aiPlayers],
+        aiNames,
+        sessionScores,
+        turnCount,
+        gameStartTime,
+        aiDifficulty
+      }));
+    } catch {
+    }
+  }
+  function clearSave() {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+    } catch {
+    }
+  }
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  function recordStats(winnerColor) {
+    try {
+      const stats = JSON.parse(localStorage.getItem(STATS_KEY2) || "[]");
+      stats.push({
+        date: (/* @__PURE__ */ new Date()).toISOString(),
+        winner: winnerColor,
+        winnerLabel: playerLabel(winnerColor),
+        playerCount: state.players.length,
+        aiMode: aiPlayers.size > 0,
+        aiDifficulty,
+        winMode: state.winMode,
+        turns: turnCount,
+        duration: Math.round((Date.now() - gameStartTime) / 1e3)
+      });
+      while (stats.length > 100) stats.shift();
+      localStorage.setItem(STATS_KEY2, JSON.stringify(stats));
+    } catch {
+    }
   }
   function cellShort(horse) {
     const r = horse.relPos;
@@ -969,20 +1160,29 @@
   }
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
+    initThemeToggle();
     createBoard(document.getElementById("board-container"));
     initSetupScreen(startGame);
     initDiceButton(onDiceClick);
-    initWinnerScreen(() => showScreen("setup"));
+    initWinnerScreen(() => {
+      showResumeButton(false);
+      showScreen("setup");
+    });
     initRepeatButton(repeatLastAnnouncement);
     initSituationButton(() => {
       if (!state) return;
       announce(getFullSituation(state));
     });
     initQuitButton(() => {
+      clearSave();
       state = null;
+      showResumeButton(false);
       showScreen("setup");
     });
+    initResumeButton(resumeGame);
+    initStatsScreen(() => showScreen("setup"));
     document.addEventListener("keydown", handleKeyboard);
+    showResumeButton(!!loadSave());
     showScreen("setup");
   });
   function handleKeyboard(e) {
@@ -1018,9 +1218,12 @@
         break;
     }
   }
-  function startGame(playerCount, isAiMode, winMode) {
+  function startGame(playerCount, isAiMode, winMode, difficulty) {
     unlockAudio();
     requestMotionPermission();
+    aiDifficulty = difficulty || "normal";
+    turnCount = 0;
+    gameStartTime = Date.now();
     state = createGame(playerCount, winMode);
     aiPlayers = /* @__PURE__ */ new Set();
     aiNames = {};
@@ -1042,7 +1245,29 @@
     }
     beginTurn();
   }
+  function resumeGame() {
+    const data = loadSave();
+    if (!data) return;
+    unlockAudio();
+    requestMotionPermission();
+    state = data.state;
+    aiPlayers = new Set(data.aiPlayers || []);
+    aiNames = data.aiNames || {};
+    Object.assign(sessionScores, data.sessionScores || {});
+    turnCount = data.turnCount || 0;
+    gameStartTime = data.gameStartTime || Date.now();
+    aiDifficulty = data.aiDifficulty || "normal";
+    initHorses(state.horses);
+    clearEventLog();
+    showScreen("game");
+    state.phase = "rolling";
+    state.lastDice = null;
+    state.validMoveIds = [];
+    announce("Partie reprise.", true);
+    beginTurn();
+  }
   function beginTurn() {
+    turnCount++;
     state.phase = "rolling";
     state.lastDice = null;
     state.validMoveIds = [];
@@ -1058,6 +1283,7 @@
       announce(`Tour de ${colorName}. ${summary}. Lancez le d\xE9.`);
       setTimeout(() => document.getElementById("btn-dice").focus(), 50);
     }
+    saveGame();
   }
   function aiPlayTurn() {
     play("dice-roll");
@@ -1107,7 +1333,7 @@
       state.phase = "selecting";
       announce(`${playerLabel(state.currentColor)} lance ${value}.`);
       setTimeout(() => {
-        const chosenId = getAIMove(state, value);
+        const chosenId = getAIMove(state, value, aiDifficulty);
         onHorseSelected(chosenId);
       }, 800);
     });
@@ -1230,6 +1456,8 @@
       }
       if (ev.type === "win") {
         sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
+        recordStats(ev.color);
+        clearSave();
         logEvent(`${COLOR_NAMES[ev.color]} gagne la partie !`, ev.color);
         const nameMap = {};
         state.players.forEach((c) => {

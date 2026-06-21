@@ -1,4 +1,4 @@
-const CACHE = 'petits-chevaux-v13';
+const CACHE = 'petits-chevaux-v14';
 
 const ASSETS = [
   './',

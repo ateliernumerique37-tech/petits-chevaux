@@ -17,6 +17,8 @@ import {
   showWinner, initWinnerScreen, announce,
   repeatLastAnnouncement, initRepeatButton, initSituationButton, initQuitButton,
   logEvent, clearEventLog,
+  initResumeButton, showResumeButton,
+  initStatsScreen, initThemeToggle,
 } from './ui.js';
 
 let state = null;
@@ -24,11 +26,58 @@ let aiPlayers = new Set();
 let aiNames = {};            // couleur IA -> prénom (Bernard, Céline, Marie…)
 const sessionScores = {};
 let shortcutsAnnounced = false;
+let aiDifficulty = 'normal';
+let turnCount = 0;
+let gameStartTime = 0;
 
 const AI_NAMES = ['Bernard', 'Céline', 'Marie'];
+const SAVE_KEY = 'petits-chevaux-save';
+const STATS_KEY = 'petits-chevaux-stats';
 
 function playerLabel(color) {
   return aiPlayers.has(color) ? `${aiNames[color]} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+}
+
+// ─── Save / Load / Stats ─────────────────────────────────────────────────────
+
+function saveGame() {
+  if (!state || state.phase === 'game-over') return;
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      state, aiPlayers: [...aiPlayers], aiNames,
+      sessionScores, turnCount, gameStartTime, aiDifficulty,
+    }));
+  } catch {}
+}
+
+function clearSave() {
+  try { localStorage.removeItem(SAVE_KEY); } catch {}
+}
+
+function loadSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function recordStats(winnerColor) {
+  try {
+    const stats = JSON.parse(localStorage.getItem(STATS_KEY) || '[]');
+    stats.push({
+      date: new Date().toISOString(),
+      winner: winnerColor,
+      winnerLabel: playerLabel(winnerColor),
+      playerCount: state.players.length,
+      aiMode: aiPlayers.size > 0,
+      aiDifficulty,
+      winMode: state.winMode,
+      turns: turnCount,
+      duration: Math.round((Date.now() - gameStartTime) / 1000),
+    });
+    while (stats.length > 100) stats.shift();
+    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  } catch {}
 }
 
 // Position courte d'un cheval, pour le journal visuel ("case 23", "couloir 4", "centre", "écurie")
@@ -85,23 +134,34 @@ async function requestMotionPermission() {
 
 window.addEventListener('DOMContentLoaded', () => {
   loadSounds();
+  initThemeToggle();
 
   createBoard(document.getElementById('board-container'));
 
   initSetupScreen(startGame);
   initDiceButton(onDiceClick);
-  initWinnerScreen(() => showScreen('setup'));
+  initWinnerScreen(() => {
+    showResumeButton(false);
+    showScreen('setup');
+  });
   initRepeatButton(repeatLastAnnouncement);
   initSituationButton(() => {
     if (!state) return;
     announce(getFullSituation(state));
   });
   initQuitButton(() => {
+    clearSave();
     state = null;
+    showResumeButton(false);
     showScreen('setup');
   });
+  initResumeButton(resumeGame);
+  initStatsScreen(() => showScreen('setup'));
 
   document.addEventListener('keydown', handleKeyboard);
+
+  // Check for saved game
+  showResumeButton(!!loadSave());
 
   showScreen('setup');
 });
@@ -145,9 +205,12 @@ function handleKeyboard(e) {
 
 // ─── Game start ───────────────────────────────────────────────────────────────
 
-function startGame(playerCount, isAiMode, winMode) {
+function startGame(playerCount, isAiMode, winMode, difficulty) {
   unlockAudio();
-  requestMotionPermission(); // demande permission iOS si nécessaire
+  requestMotionPermission();
+  aiDifficulty = difficulty || 'normal';
+  turnCount = 0;
+  gameStartTime = Date.now();
   state = createGame(playerCount, winMode);
 
   aiPlayers = new Set();
@@ -174,9 +237,39 @@ function startGame(playerCount, isAiMode, winMode) {
   beginTurn();
 }
 
+// ─── Resume saved game ───────────────────────────────────────────────────────
+
+function resumeGame() {
+  const data = loadSave();
+  if (!data) return;
+
+  unlockAudio();
+  requestMotionPermission();
+
+  state = data.state;
+  aiPlayers = new Set(data.aiPlayers || []);
+  aiNames = data.aiNames || {};
+  Object.assign(sessionScores, data.sessionScores || {});
+  turnCount = data.turnCount || 0;
+  gameStartTime = data.gameStartTime || Date.now();
+  aiDifficulty = data.aiDifficulty || 'normal';
+
+  initHorses(state.horses);
+  clearEventLog();
+  showScreen('game');
+
+  state.phase = 'rolling';
+  state.lastDice = null;
+  state.validMoveIds = [];
+
+  announce('Partie reprise.', true);
+  beginTurn();
+}
+
 // ─── Turn start ───────────────────────────────────────────────────────────────
 
 function beginTurn() {
+  turnCount++;
   state.phase = 'rolling';
   state.lastDice = null;
   state.validMoveIds = [];
@@ -195,6 +288,8 @@ function beginTurn() {
     announce(`Tour de ${colorName}. ${summary}. Lancez le dé.`);
     setTimeout(() => document.getElementById('btn-dice').focus(), 50);
   }
+
+  saveGame();
 }
 
 // ─── AI play logic ────────────────────────────────────────────────────────────
@@ -252,7 +347,7 @@ function aiPlayTurn() {
     announce(`${playerLabel(state.currentColor)} lance ${value}.`);
 
     setTimeout(() => {
-      const chosenId = getAIMove(state, value);
+      const chosenId = getAIMove(state, value, aiDifficulty);
       onHorseSelected(chosenId);
     }, 800);
   });
@@ -392,6 +487,8 @@ function onHorseSelected(horseId) {
     }
     if (ev.type === 'win') {
       sessionScores[ev.color] = (sessionScores[ev.color] || 0) + 1;
+      recordStats(ev.color);
+      clearSave();
       logEvent(`${COLOR_NAMES[ev.color]} gagne la partie !`, ev.color);
       const nameMap = {};
       state.players.forEach(c => { nameMap[c] = playerLabel(c); });

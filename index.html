@@ -49,6 +49,16 @@
         <p id="ai-mode-hint" class="hint">Vous jouez Rouge ; l'ordinateur (Bernard, Céline, Marie) contrôle les autres couleurs.</p>
       </div>
 
+      <div class="form-group" id="difficulty-group" hidden>
+        <label for="ai-difficulty" class="label">Difficulté de l'IA</label>
+        <select id="ai-difficulty" class="select" aria-describedby="ai-difficulty-hint">
+          <option value="easy">Facile — choix aléatoires</option>
+          <option value="normal" selected>Normal — stratégie équilibrée</option>
+          <option value="hard">Difficile — stratégie avancée</option>
+        </select>
+        <p id="ai-difficulty-hint" class="hint">Facile : l'IA joue au hasard. Normal : stratégie classique. Difficile : analyse approfondie.</p>
+      </div>
+
       <div class="form-group">
         <label for="win-mode" class="label">Condition de victoire</label>
         <select id="win-mode" class="select" aria-describedby="win-mode-hint">
@@ -58,13 +68,22 @@
         <p id="win-mode-hint" class="hint">Règle traditionnelle : les 4 chevaux. Partie rapide : le premier cheval arrivé gagne.</p>
       </div>
 
+      <button id="btn-resume" class="btn btn-resume btn-large" type="button" hidden>
+        Reprendre la partie en cours
+      </button>
+
       <button id="btn-start" class="btn btn-primary btn-large" type="button">
         Lancer la partie
       </button>
 
-      <a href="regles.html" class="btn-rules-link">
-        Règles du jeu
-      </a>
+      <div class="setup-links">
+        <button id="btn-stats" class="btn-rules-link" type="button">Statistiques</button>
+        <a href="regles.html" class="btn-rules-link">Règles du jeu</a>
+      </div>
+
+      <button id="btn-theme" class="btn-theme-toggle" type="button" aria-live="polite">
+        Thème : Auto
+      </button>
     </div>
   </main>
 
@@ -127,6 +146,20 @@
       <button id="btn-restart" class="btn btn-primary btn-large" type="button">
         Rejouer
       </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN 5 – Stats
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-stats" class="screen" aria-label="Statistiques" hidden>
+    <div class="stats-card" role="region" aria-labelledby="stats-title">
+      <header class="stats-header">
+        <button id="btn-stats-back" class="btn-back" type="button">← Retour</button>
+        <h2 id="stats-title" class="stats-title">Statistiques</h2>
+      </header>
+      <div id="stats-content"></div>
+      <button id="btn-stats-clear" class="btn-quit" type="button" hidden>Effacer l'historique</button>
     </div>
   </div>
 

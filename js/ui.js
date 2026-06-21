@@ -29,9 +29,19 @@ export function initSetupScreen(onStart) {
   startBtn.addEventListener('click', () => {
     const count = parseInt($('player-count').value, 10);
     const aiMode = $('ai-mode').value === 'ai';
-    const winMode = $('win-mode').value; // 'all' | 'one'
-    onStart(count, aiMode, winMode);
+    const winMode = $('win-mode').value;
+    const difficulty = $('ai-difficulty')?.value || 'normal';
+    onStart(count, aiMode, winMode, difficulty);
   });
+
+  // Show/hide AI difficulty selector
+  const aiSelect = $('ai-mode');
+  const diffGroup = $('difficulty-group');
+  if (aiSelect && diffGroup) {
+    const toggle = () => { diffGroup.hidden = aiSelect.value !== 'ai'; };
+    aiSelect.addEventListener('change', toggle);
+    toggle();
+  }
 }
 
 // ─── Game screen ──────────────────────────────────────────────────────────────
@@ -186,6 +196,124 @@ export function logEvent(text, color, capture = false) {
 
   list.insertBefore(li, list.firstChild);
   while (list.children.length > 40) list.removeChild(list.lastChild);
+}
+
+// ─── Resume button ───────────────────────────────────────────────────────────
+
+export function initResumeButton(onResume) {
+  const btn = $('btn-resume');
+  if (btn) btn.addEventListener('click', onResume);
+}
+
+export function showResumeButton(visible) {
+  const btn = $('btn-resume');
+  if (btn) btn.hidden = !visible;
+}
+
+// ─── Stats screen ────────────────────────────────────────────────────────────
+
+const STATS_KEY = 'petits-chevaux-stats';
+
+function formatDuration(seconds) {
+  if (!seconds || seconds <= 0) return '—';
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m} min ${s} s` : `${s} s`;
+}
+
+export function renderStats() {
+  const container = $('stats-content');
+  const clearBtn = $('btn-stats-clear');
+  if (!container) return;
+
+  let stats = [];
+  try { stats = JSON.parse(localStorage.getItem(STATS_KEY) || '[]'); } catch {}
+
+  if (stats.length === 0) {
+    container.innerHTML = '<p class="stats-summary" style="text-align:center">Aucune partie terminée pour l\'instant.</p>';
+    if (clearBtn) clearBtn.hidden = true;
+    return;
+  }
+
+  const total = stats.length;
+  const aiGames = stats.filter(s => s.aiMode);
+  const aiWins = aiGames.filter(s => s.winner === 'red');
+  const avgDuration = Math.round(stats.reduce((a, s) => a + (s.duration || 0), 0) / total);
+
+  let html = '<div class="stats-summary">';
+  html += `<p><strong>${total}</strong> partie${total > 1 ? 's' : ''} terminée${total > 1 ? 's' : ''}</p>`;
+  if (aiGames.length > 0) {
+    const pct = Math.round(aiWins.length / aiGames.length * 100);
+    html += `<p>Contre l'IA : <strong>${aiWins.length}/${aiGames.length}</strong> victoire${aiWins.length > 1 ? 's' : ''} (${pct} %)</p>`;
+  }
+  html += `<p>Durée moyenne : <strong>${formatDuration(avgDuration)}</strong></p>`;
+  html += '</div>';
+
+  html += '<p class="stats-subtitle">Dernières parties</p>';
+  html += '<ul class="stats-list">';
+  const recent = stats.slice(-10).reverse();
+  for (const s of recent) {
+    const date = new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const diff = { easy: 'facile', normal: 'normal', hard: 'difficile' };
+    const mode = s.aiMode ? `IA ${diff[s.aiDifficulty] || 'normal'}` : `${s.playerCount} humains`;
+    const dur = s.duration ? ` — ${formatDuration(s.duration)}` : '';
+    html += `<li>${date} — ${s.winnerLabel || s.winner} gagne (${mode})${dur}</li>`;
+  }
+  html += '</ul>';
+
+  container.innerHTML = html;
+  if (clearBtn) clearBtn.hidden = false;
+}
+
+export function initStatsScreen(onBack) {
+  const backBtn = $('btn-stats-back');
+  if (backBtn) backBtn.addEventListener('click', onBack);
+
+  const statsBtn = $('btn-stats');
+  if (statsBtn) {
+    statsBtn.addEventListener('click', () => {
+      renderStats();
+      showScreen('stats');
+    });
+  }
+
+  const clearBtn = $('btn-stats-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      try { localStorage.removeItem(STATS_KEY); } catch {}
+      renderStats();
+    });
+  }
+}
+
+// ─── Theme toggle ────────────────────────────────────────────────────────────
+
+const THEME_KEY = 'petits-chevaux-theme';
+const THEME_LABELS = { auto: 'Thème : Auto', light: 'Thème : Clair', dark: 'Thème : Sombre' };
+const THEME_CYCLE = ['auto', 'light', 'dark'];
+
+function applyThemeClass(theme) {
+  document.documentElement.classList.remove('theme-light', 'theme-dark');
+  if (theme === 'light') document.documentElement.classList.add('theme-light');
+  else if (theme === 'dark') document.documentElement.classList.add('theme-dark');
+}
+
+export function initThemeToggle() {
+  let current = 'auto';
+  try { current = localStorage.getItem(THEME_KEY) || 'auto'; } catch {}
+  applyThemeClass(current);
+
+  const btn = $('btn-theme');
+  if (!btn) return;
+  btn.textContent = THEME_LABELS[current] || THEME_LABELS.auto;
+
+  btn.addEventListener('click', () => {
+    const idx = THEME_CYCLE.indexOf(current);
+    current = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+    applyThemeClass(current);
+    btn.textContent = THEME_LABELS[current];
+    try { localStorage.setItem(THEME_KEY, current); } catch {}
+  });
 }
 
 // ─── Dice face glyphs ─────────────────────────────────────────────────────────

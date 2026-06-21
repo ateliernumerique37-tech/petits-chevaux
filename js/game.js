@@ -283,10 +283,14 @@ export function getFullSituation(state) {
 }
 
 // Bernard: win > capture > home-stretch advance > enter home > safe track > avoid danger > exit stable
-export function getAIMove(state, dice) {
+export function getAIMove(state, dice, difficulty = 'normal') {
   const ids = getValidMoves(state, dice);
   if (ids.length === 0) return null;
   if (ids.length === 1) return ids[0];
+
+  if (difficulty === 'easy') {
+    return ids[Math.floor(Math.random() * ids.length)];
+  }
 
   const color = state.currentColor;
 
@@ -331,6 +335,25 @@ export function getAIMove(state, dice) {
   const opts = ids.map(id =>
     simulate(state.horses.find(h => h.color === color && h.id === id))
   );
+
+  if (difficulty === 'hard') {
+    let best = opts[0], bestScore = -Infinity;
+    for (const o of opts) {
+      let s = o.newRel * 2;
+      if (o.wins) s += 10000;
+      if (o.captures) s += 500;
+      if (o.entersHome) s += 200;
+      if (o.inHome && !o.bounced) s += 150 + o.newRel;
+      if (o.isSafe) s += 80;
+      if (o.isDangerous) s -= 60;
+      if (o.bounced) s -= 40;
+      if (o.wasInStable) s += 20;
+      if (!o.isDangerous && !o.isSafe && o.newAbs !== null) s += 30;
+      if (s > bestScore) { bestScore = s; best = o; }
+    }
+    return best.id;
+  }
+
   const pickBest = arr => arr.reduce((b, o) => o.newRel > b.newRel ? o : b);
 
   // 1. Win immediately
