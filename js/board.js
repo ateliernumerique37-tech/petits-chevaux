@@ -276,7 +276,6 @@ function makeHorsePiece(horse) {
     tabindex: '-1',
     role: 'button',
     'aria-label': getHorseDescription(horse),
-    'aria-pressed': 'false',
     'aria-disabled': 'true',
   });
 
@@ -360,14 +359,15 @@ export function setMovable(color, horseIds, onSelect) {
     const pick = () => {
       clearHighlights();
       piece.classList.add('selected');
-      piece.setAttribute('aria-pressed', 'true');
       onSelect(id);
     };
-    piece._pickHandler = pick;
-    piece.addEventListener('click', pick);
-    piece.addEventListener('keydown', (e) => {
+    const onKey = (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); }
-    });
+    };
+    piece._pickHandler = pick;
+    piece._keyHandler = onKey;
+    piece.addEventListener('click', pick);
+    piece.addEventListener('keydown', onKey);
   }
 
   // Delay focus so the ARIA live region announcement plays first
@@ -388,10 +388,13 @@ export function clearHighlights() {
     piece.classList.remove('can-move', 'selected');
     piece.setAttribute('tabindex', '-1');
     piece.setAttribute('aria-disabled', 'true');
-    piece.removeAttribute('aria-pressed');
     if (piece._pickHandler) {
       piece.removeEventListener('click', piece._pickHandler);
       delete piece._pickHandler;
+    }
+    if (piece._keyHandler) {
+      piece.removeEventListener('keydown', piece._keyHandler);
+      delete piece._keyHandler;
     }
   });
 }

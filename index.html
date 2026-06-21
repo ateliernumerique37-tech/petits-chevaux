@@ -62,38 +62,24 @@
         Lancer la partie
       </button>
 
-      <a href="regles.html" class="btn-rules-link" aria-label="Lire les règles du jeu de Petits Chevaux">
+      <a href="regles.html" class="btn-rules-link">
         Règles du jeu
       </a>
     </div>
   </main>
 
   <!-- ══════════════════════════════════════════════════════════
-       SCREEN 2 – Pass phone
-  ══════════════════════════════════════════════════════════ -->
-  <div id="screen-pass" class="screen screen-pass" aria-label="Passation du téléphone" role="dialog" aria-modal="true" hidden>
-    <div class="pass-card">
-      <p class="pass-label" aria-hidden="true">📱 Passez le téléphone à</p>
-      <p id="pass-player-name" class="pass-player-name" aria-label="Joueur suivant"></p>
-      <p class="pass-instruction">L'écran vous appartient maintenant.</p>
-      <button id="btn-ready" class="btn btn-ready btn-large" type="button"
-              aria-label="Je suis prêt, afficher le plateau">
-        Je suis prêt !
-      </button>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════════
-       SCREEN 3 – Game
+       SCREEN 2 – Game
   ══════════════════════════════════════════════════════════ -->
   <div id="screen-game" class="screen screen-game" aria-label="Partie en cours" hidden>
 
-    <!-- Status bar -->
+    <!-- Status bar (visuel ; les infos sont déjà portées par les annonces ARIA live ci-dessus,
+         donc pas d'aria-live ici pour éviter la double lecture) -->
     <header class="game-header" role="banner">
-      <span id="turn-banner" class="turn-banner" aria-live="polite" aria-atomic="true">
+      <span id="turn-banner" class="turn-banner">
         Tour de …
       </span>
-      <span id="dice-result" class="dice-result" aria-live="polite" aria-atomic="true"></span>
+      <span id="dice-result" class="dice-result"></span>
     </header>
 
     <!-- Journal visuel des coups : permet aux voyants de rattraper d'un coup d'œil.
@@ -110,35 +96,20 @@
          aria-describedby="board-instructions">
     </div>
     <p id="board-instructions" class="sr-only">
-      Utilisez Tab pour naviguer entre les chevaux déplaçables, puis Entrée ou Espace pour sélectionner.
-      Raccourcis clavier Alt+Maj : D pour lancer le dé, 1 à 4 pour choisir un cheval, S pour lire la situation, A pour répéter la dernière annonce.
+      Naviguez entre les chevaux jouables avec Tab, validez avec Entrée.
     </p>
 
-    <!-- Dice + utility buttons -->
+    <!-- Dice + utility buttons (libellés portés par le texte visible → moins verbeux pour le lecteur d'écran) -->
     <footer class="game-footer" role="contentinfo">
-      <button id="btn-dice"
-              class="btn-dice"
-              type="button"
-              aria-label="Lancer le dé"
-              aria-describedby="dice-help">
+      <button id="btn-dice" class="btn-dice" type="button">
         <span id="dice-face" class="dice-face" aria-hidden="true">⚀</span>
         <span class="dice-label">Lancer le dé</span>
       </button>
       <div class="game-actions-row">
-        <button id="btn-situation" class="btn-secondary" type="button"
-                aria-label="Lire la situation du jeu pour tous les joueurs">
-          Situation
-        </button>
-        <button id="btn-repeat" class="btn-secondary" type="button"
-                aria-label="Répéter la dernière annonce du lecteur d'écran">
-          Répéter
-        </button>
+        <button id="btn-situation" class="btn-secondary" type="button">Situation</button>
+        <button id="btn-repeat" class="btn-secondary" type="button">Répéter</button>
       </div>
-      <button id="btn-quit" class="btn-quit" type="button"
-              aria-label="Quitter la partie en cours et revenir à la configuration">
-        Quitter la partie
-      </button>
-      <p id="dice-help" class="sr-only">Appuyez pour lancer le dé à six faces</p>
+      <button id="btn-quit" class="btn-quit" type="button">Quitter la partie</button>
     </footer>
   </div>
 

@@ -34,35 +34,6 @@ export function initSetupScreen(onStart) {
   });
 }
 
-// ─── Pass-phone screen ────────────────────────────────────────────────────────
-
-let passResolve = null;
-
-export function showPassPhone(color, onShown) {
-  return new Promise(resolve => {
-    passResolve = resolve;
-
-    const pal = {
-      red:    '#c62828', green:  '#2e7d32',
-      yellow: '#f57f17', blue:   '#1565c0',
-    };
-    const screen = $('screen-pass');
-    screen.style.setProperty('--pass-color', pal[color]);
-    $('pass-player-name').textContent = COLOR_NAMES[color];
-    $('pass-player-name').style.color = pal[color];
-
-    showScreen('pass');
-    if (onShown) onShown();
-    announce(`Passez le téléphone au joueur ${COLOR_NAMES[color]}`, true);
-  });
-}
-
-export function initPassScreen() {
-  $('btn-ready').addEventListener('click', () => {
-    if (passResolve) { passResolve(); passResolve = null; }
-  });
-}
-
 // ─── Game screen ──────────────────────────────────────────────────────────────
 
 export function updateTurnBanner(color, phase, diceValue) {

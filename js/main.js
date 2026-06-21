@@ -187,7 +187,8 @@ function beginTurn() {
 
   if (aiPlayers.has(state.currentColor)) {
     setDiceEnabled(false);
-    announce(`${aiNames[state.currentColor]} joue pour ${colorName}. ${summary}.`);
+    // Tour IA : pas de résumé de positions (le joueur peut le demander avec « Situation »)
+    announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
     setTimeout(aiPlayTurn, 1800);
   } else {
     setDiceEnabled(true);
@@ -323,7 +324,7 @@ function onDiceClick() {
       updateHorseLabel(state.currentColor, ids[0], getMoveLabel(state, horse, value));
       setTimeout(() => onHorseSelected(ids[0]), 300);
     } else {
-      announce(`${colorName} lance ${value}. ${ids.length} chevaux peuvent bouger. Utilisez Tab pour naviguer, Entrée pour choisir.`);
+      announce(`${colorName} lance ${value}. ${ids.length} chevaux peuvent bouger.`);
       ids.forEach(id => {
         const horse = state.horses.find(h => h.color === state.currentColor && h.id === id);
         updateHorseLabel(state.currentColor, id, getMoveLabel(state, horse, value));

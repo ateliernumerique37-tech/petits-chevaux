@@ -577,7 +577,6 @@
       tabindex: "-1",
       role: "button",
       "aria-label": getHorseDescription(horse),
-      "aria-pressed": "false",
       "aria-disabled": "true"
     });
     g.appendChild(el("circle", { cx: 0, cy: 0, r: 22, fill: "none", "pointer-events": "all" }));
@@ -653,17 +652,18 @@
       const pick = () => {
         clearHighlights();
         piece.classList.add("selected");
-        piece.setAttribute("aria-pressed", "true");
         onSelect(id);
       };
-      piece._pickHandler = pick;
-      piece.addEventListener("click", pick);
-      piece.addEventListener("keydown", (e) => {
+      const onKey = (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           pick();
         }
-      });
+      };
+      piece._pickHandler = pick;
+      piece._keyHandler = onKey;
+      piece.addEventListener("click", pick);
+      piece.addEventListener("keydown", onKey);
     }
     setTimeout(() => {
       const first = getHorsePiece(color, horseIds[0]);
@@ -680,10 +680,13 @@
       piece.classList.remove("can-move", "selected");
       piece.setAttribute("tabindex", "-1");
       piece.setAttribute("aria-disabled", "true");
-      piece.removeAttribute("aria-pressed");
       if (piece._pickHandler) {
         piece.removeEventListener("click", piece._pickHandler);
         delete piece._pickHandler;
+      }
+      if (piece._keyHandler) {
+        piece.removeEventListener("keydown", piece._keyHandler);
+        delete piece._keyHandler;
       }
     });
   }
@@ -1048,7 +1051,7 @@
     const summary = getTurnSummary(state);
     if (aiPlayers.has(state.currentColor)) {
       setDiceEnabled(false);
-      announce(`${aiNames[state.currentColor]} joue pour ${colorName}. ${summary}.`);
+      announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
       setTimeout(aiPlayTurn, 1800);
     } else {
       setDiceEnabled(true);
@@ -1165,7 +1168,7 @@
         updateHorseLabel(state.currentColor, ids[0], getMoveLabel(state, horse, value));
         setTimeout(() => onHorseSelected(ids[0]), 300);
       } else {
-        announce(`${colorName} lance ${value}. ${ids.length} chevaux peuvent bouger. Utilisez Tab pour naviguer, Entr\xE9e pour choisir.`);
+        announce(`${colorName} lance ${value}. ${ids.length} chevaux peuvent bouger.`);
         ids.forEach((id) => {
           const horse = state.horses.find((h) => h.color === state.currentColor && h.id === id);
           updateHorseLabel(state.currentColor, id, getMoveLabel(state, horse, value));

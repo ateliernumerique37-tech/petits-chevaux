@@ -336,6 +336,23 @@ Chaque IA a donc un prénom distinct (sinon « Bernard » partout = confusion à
 5. **Pas d'écran de passation** : le passage de tour est direct. L'annonce `"Tour de Vert. ..."`
    suffit comme signal au lecteur d'écran.
 
+6. **Verbosité — éviter les doublons** (audit juin 2026) : `#turn-banner` et `#dice-result` sont
+   **visuels uniquement** (pas d'`aria-live`) — l'info passe déjà par `announce()`. Les remettre
+   en `aria-live` ferait lire le tour et le dé **deux fois**.
+
+7. **Libellés de boutons = texte visible** : pas d'`aria-label` redondant sur les boutons dont le
+   texte visible est déjà clair (Lancer le dé, Situation, Répéter, Quitter, Règles). WCAG 2.5.3 :
+   le nom accessible doit contenir le texte visible. Pas d'`aria-label` sur un `<a>`/`<button>`
+   avec texte (il écrase le contenu pour NVDA/JAWS).
+
+8. **Pions = boutons d'action, pas des bascules** : ne PAS remettre `aria-pressed` sur les pions
+   (`.horse`) — ça les fait annoncer « bouton bascule, non enfoncé ». Ce sont des `role="button"`
+   simples ; le résultat du coup est porté par l'annonce.
+
+9. **Nettoyer les écouteurs des pions** : `setMovable` ajoute `click` **et** `keydown` ; les deux
+   sont stockés (`_pickHandler`, `_keyHandler`) et **retirés** dans `clearHighlights`. Ne pas
+   ajouter d'écouteur anonyme non retiré (fuite : un pion ré-empilait un `keydown` à chaque tour).
+
 ---
 
 ## PWA et déploiement
