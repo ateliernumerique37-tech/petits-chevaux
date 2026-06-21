@@ -916,11 +916,12 @@
   // js/main.js
   var state = null;
   var aiPlayers = /* @__PURE__ */ new Set();
+  var aiNames = {};
   var sessionScores = {};
   var shortcutsAnnounced = false;
-  var AI_NAME = "Bernard";
+  var AI_NAMES = ["Bernard", "C\xE9line", "Marie"];
   function playerLabel(color) {
-    return aiPlayers.has(color) ? `${AI_NAME} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
+    return aiPlayers.has(color) ? `${aiNames[color]} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
   }
   function cellShort(horse) {
     const r = horse.relPos;
@@ -1019,8 +1020,12 @@
     requestMotionPermission();
     state = createGame(playerCount, winMode);
     aiPlayers = /* @__PURE__ */ new Set();
+    aiNames = {};
     if (isAiMode) {
-      state.players.slice(1).forEach((color) => aiPlayers.add(color));
+      state.players.slice(1).forEach((color, i) => {
+        aiPlayers.add(color);
+        aiNames[color] = AI_NAMES[i] || `IA ${i + 1}`;
+      });
     }
     state.players.forEach((color) => {
       if (!(color in sessionScores)) sessionScores[color] = 0;
@@ -1043,7 +1048,7 @@
     const summary = getTurnSummary(state);
     if (aiPlayers.has(state.currentColor)) {
       setDiceEnabled(false);
-      announce(`${AI_NAME} joue pour ${colorName}. ${summary}.`);
+      announce(`${aiNames[state.currentColor]} joue pour ${colorName}. ${summary}.`);
       setTimeout(aiPlayTurn, 1800);
     } else {
       setDiceEnabled(true);
@@ -1070,12 +1075,12 @@
           moveHorse(penalized);
           markLastMoved(state.currentColor, penalized.id);
           announce(
-            `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de ${AI_NAME} perdu.`,
+            `Trois 6 de suite ! Cheval ${COLOR_NAMES[state.currentColor]} ${penalized.id + 1} retourne \xE0 l'\xE9curie. Tour de ${aiNames[state.currentColor]} perdu.`,
             true
           );
           logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6 ! cheval ${penalized.id + 1} \u2192 \xE9curie`, state.currentColor);
         } else {
-          announce(`Trois 6 de suite ! Tour de ${AI_NAME} perdu.`, true);
+          announce(`Trois 6 de suite ! Tour de ${aiNames[state.currentColor]} perdu.`, true);
           logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
         }
         setTimeout(() => endTurn(false), 2e3);
@@ -1204,7 +1209,7 @@
         moveHorse(captured);
         play("capture");
         vibrate([100, 50, 150]);
-        const replayMsg = aiPlayers.has(ev.byColor) ? `${AI_NAME} rejoue !` : "Vous rejouez !";
+        const replayMsg = aiPlayers.has(ev.byColor) ? `${aiNames[ev.byColor]} rejoue !` : "Vous rejouez !";
         announce(
           `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. ${replayMsg}`,
           true

@@ -310,7 +310,11 @@ Utilise `e.code` (position physique, indépendante du layout).
 > "Q" (QWERTY). `e.code === 'KeyQ'` pour la touche "A". Utiliser `KeyQ` dans le code, annoncer
 > "A" à l'utilisateur. Les touches D, S et les chiffres sont identiques sur AZERTY et QWERTY.
 
-**`playerLabel(color)`** : retourne `"Bernard (Vert)"` pour les couleurs IA, `"Vert"` pour les humains.
+**Noms des IA** : `AI_NAMES = ['Bernard', 'Céline', 'Marie']` attribués dans l'ordre aux couleurs
+IA (`state.players.slice(1)` — Vert, Jaune, Bleu) au `startGame`, stockés dans `aiNames` (couleur→prénom).
+Chaque IA a donc un prénom distinct (sinon « Bernard » partout = confusion à 3-4 joueurs).
+**`playerLabel(color)`** : retourne `"Bernard (Vert)"`, `"Céline (Jaune)"`… pour les couleurs IA,
+`"Vert"` pour les humains. `aiNames` est réinitialisé à chaque partie.
 
 ---
 
