@@ -94,6 +94,16 @@ function drawDefs() {
   f.appendChild(el('feDropShadow', { dx: 0, dy: 2.4, stdDeviation: 2.2, 'flood-color': '#000000', 'flood-opacity': 0.5 }));
   defs.appendChild(f);
 
+  // Wood grain texture filter for the board field
+  const woodFilter = el('filter', { id: 'wood-grain', x: '0', y: '0', width: '100%', height: '100%' });
+  const turb = el('feTurbulence', { type: 'fractalNoise', baseFrequency: '0.04 0.003', numOctaves: '5', seed: '2', result: 'grain' });
+  woodFilter.appendChild(turb);
+  const colorMat = el('feColorMatrix', { type: 'matrix', in: 'grain', values: '0 0 0 0 0.62  0 0 0 0 0.48  0 0 0 0 0.28  0 0 0 0.12 0', result: 'wood' });
+  woodFilter.appendChild(colorMat);
+  const blend = el('feBlend', { in: 'SourceGraphic', in2: 'wood', mode: 'multiply' });
+  woodFilter.appendChild(blend);
+  defs.appendChild(woodFilter);
+
   // Vignette douce (lumière du dessus → réalisme)
   const vig = el('radialGradient', { id: 'grad-vignette', cx: '50%', cy: '45%', r: '62%' });
   vig.appendChild(el('stop', { offset: '58%', 'stop-color': '#000000', 'stop-opacity': 0 }));
@@ -118,8 +128,8 @@ function linearGrad(id, c0, c1, x1, y1, x2, y2) {
 }
 
 function drawBase() {
-  // Board field
-  svg.appendChild(el('rect', { x: 0, y: 0, width: W, height: W, rx: 16, fill: 'url(#grad-field)' }));
+  // Board field with wood grain
+  svg.appendChild(el('rect', { x: 0, y: 0, width: W, height: W, rx: 16, fill: 'url(#grad-field)', filter: 'url(#wood-grain)' }));
   // Frame border
   svg.appendChild(el('rect', { x: 3, y: 3, width: W - 6, height: W - 6, rx: 13, fill: 'none', stroke: 'url(#grad-frame)', 'stroke-width': 6 }));
   // Inner highlight line (biseau)
