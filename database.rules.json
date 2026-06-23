@@ -3,7 +3,7 @@
     "rooms": {
       "$roomId": {
         ".read": true,
-        ".write": "!data.exists() && newData.child('config/hostId').val() === auth.uid",
+        ".write": "(!data.exists() && newData.child('config/hostId').val() === auth.uid) || (data.child('config/hostId').val() === auth.uid && !newData.exists())",
 
         "config": {
           ".write": "!data.exists() || data.child('hostId').val() === auth.uid",
