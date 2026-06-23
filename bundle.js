@@ -1160,6 +1160,9 @@
     const playerRef = db.ref("rooms/" + roomId + "/players/" + currentUser.uid);
     playerRef.child("connected").onDisconnect().set(false);
     playerRef.child("lastSeen").onDisconnect().set(fb().database.ServerValue.TIMESTAMP);
+    db.ref("rooms/" + roomId).onDisconnect().remove();
+    db.ref("publicRooms/" + roomId).onDisconnect().remove();
+    if (code) db.ref("roomCodes/" + code).onDisconnect().remove();
     currentRoomId = roomId;
     hostFlag = true;
     return { roomId, code };
@@ -1271,6 +1274,8 @@
     const roomRef = db.ref("rooms/" + currentRoomId);
     roomRef.child("players/" + currentUser.uid + "/connected").onDisconnect().cancel();
     roomRef.child("players/" + currentUser.uid + "/lastSeen").onDisconnect().cancel();
+    roomRef.onDisconnect().cancel();
+    db.ref("publicRooms/" + currentRoomId).onDisconnect().cancel();
     const configSnap = await roomRef.child("config").once("value");
     const config = configSnap.val();
     if (config && config.hostId === currentUser.uid) {
