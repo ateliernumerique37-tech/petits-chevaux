@@ -1,0 +1,72 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        ".write": "!data.exists() && newData.child('config/hostId').val() === auth.uid",
+
+        "config": {
+          ".write": "!data.exists() || data.child('hostId').val() === auth.uid",
+          ".validate": "newData.hasChildren(['hostId', 'hostName', 'maxPlayers', 'public', 'createdAt'])",
+          "hostId":    { ".validate": "newData.isString()" },
+          "hostName":  { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "maxPlayers": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 4" },
+          "public":    { ".validate": "newData.isBoolean()" },
+          "code":      { ".validate": "newData.isString() && newData.val().length === 6" },
+          "createdAt": { ".validate": "newData.isNumber()" },
+          "winMode":   { ".validate": "newData.isString() && newData.val().matches(/^(all|one)$/)" },
+          "$other":    { ".validate": false }
+        },
+
+        "players": {
+          "$playerId": {
+            ".write": "$playerId === auth.uid || data.parent().parent().child('config/hostId').val() === auth.uid",
+            ".validate": "newData.hasChildren(['name', 'color'])",
+            "name":      { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+            "color":     { ".validate": "newData.isString() && newData.val().matches(/^(red|green|yellow|blue)$/)" },
+            "connected": { ".validate": "newData.isBoolean()" },
+            "lastSeen":  { ".validate": "newData.isNumber()" },
+            "$other":    { ".validate": false }
+          }
+        },
+
+        "gameState": {
+          ".write": "data.parent().child('players/' + auth.uid).exists() || newData.parent().child('players/' + auth.uid).exists()",
+          ".validate": "newData.hasChildren(['currentColor', 'phase', 'seq'])"
+        },
+
+        "status": {
+          ".write": "data.parent().child('config/hostId').val() === auth.uid || newData.parent().child('config/hostId').val() === auth.uid || data.parent().child('players/' + auth.uid).exists() || newData.parent().child('players/' + auth.uid).exists()",
+          ".validate": "newData.isString() && newData.val().matches(/^(waiting|playing|finished)$/)"
+        },
+
+        "moves": {
+          "$moveId": {
+            ".write": "data.parent().parent().child('players/' + auth.uid).exists()",
+            ".validate": "newData.hasChildren(['playerId', 'type', 'timestamp'])",
+            "playerId":  { ".validate": "newData.val() === auth.uid" },
+            "type":      { ".validate": "newData.isString()" },
+            "timestamp": { ".validate": "newData.isNumber()" },
+            "$other":    { ".validate": true }
+          }
+        }
+      }
+    },
+
+    "publicRooms": {
+      ".read": true,
+      "$roomId": {
+        ".write": "auth !== null",
+        ".validate": "newData.hasChildren(['hostName', 'playerCount', 'maxPlayers'])"
+      }
+    },
+
+    "roomCodes": {
+      "$code": {
+        ".read": "auth !== null",
+        ".write": "auth !== null",
+        ".validate": "newData.isString()"
+      }
+    }
+  }
+}

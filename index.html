@@ -76,6 +76,10 @@
         Lancer la partie
       </button>
 
+      <button id="btn-online" class="btn btn-large btn-online" type="button">
+        Jouer en ligne
+      </button>
+
       <div class="setup-links">
         <button id="btn-stats" class="btn-rules-link" type="button">Statistiques</button>
         <a href="regles.html" class="btn-rules-link">Règles du jeu</a>
@@ -147,6 +151,130 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════════
+       SCREEN – Online Menu
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-online-menu" class="screen" aria-label="Jouer en ligne" hidden>
+    <div class="setup-card" role="region" aria-labelledby="online-menu-title">
+      <h1 id="online-menu-title" class="setup-title">🌐 En ligne</h1>
+      <p class="setup-subtitle">Jouez avec vos amis à distance</p>
+
+      <div class="form-group">
+        <label for="online-name" class="label">Votre pseudo</label>
+        <input id="online-name" type="text" class="select" maxlength="20"
+               placeholder="Entrez votre pseudo" autocomplete="off">
+      </div>
+
+      <p id="online-error" class="online-error" hidden aria-live="assertive"></p>
+
+      <button id="btn-create-room" class="btn btn-primary btn-large" type="button">
+        Créer un plateau
+      </button>
+      <button id="btn-join-room" class="btn btn-large btn-online-secondary" type="button">
+        Rejoindre un plateau
+      </button>
+      <button id="btn-online-back" class="btn-back" type="button">← Retour</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN – Online Create
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-online-create" class="screen" aria-label="Créer un plateau" hidden>
+    <div class="setup-card" role="region" aria-labelledby="online-create-title">
+      <h2 id="online-create-title" class="setup-title">Créer un plateau</h2>
+
+      <div class="form-group">
+        <label for="online-max-players" class="label">Nombre de joueurs</label>
+        <select id="online-max-players" class="select">
+          <option value="2">2 joueurs</option>
+          <option value="3">3 joueurs</option>
+          <option value="4" selected>4 joueurs</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="online-visibility" class="label">Visibilité</label>
+        <select id="online-visibility" class="select" aria-describedby="visibility-hint">
+          <option value="public">Public — visible par tous</option>
+          <option value="private">Privé — code à 6 chiffres</option>
+        </select>
+        <p id="visibility-hint" class="hint">Les plateaux publics apparaissent dans la liste. Les privés nécessitent un code.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="online-win-mode" class="label">Condition de victoire</label>
+        <select id="online-win-mode" class="select">
+          <option value="all">4 chevaux au centre (officielle)</option>
+          <option value="one">1 cheval au centre (rapide)</option>
+        </select>
+      </div>
+
+      <p id="create-error" class="online-error" hidden aria-live="assertive"></p>
+
+      <button id="btn-create-confirm" class="btn btn-primary btn-large" type="button">
+        Créer le plateau
+      </button>
+      <button id="btn-create-cancel" class="btn-back" type="button">← Retour</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN – Online Join
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-online-join" class="screen" aria-label="Rejoindre un plateau" hidden>
+    <div class="setup-card" role="region" aria-labelledby="online-join-title">
+      <h2 id="online-join-title" class="setup-title">Rejoindre</h2>
+
+      <div class="form-group">
+        <label for="join-code" class="label">Code privé</label>
+        <div class="join-code-row">
+          <input id="join-code" type="text" class="select join-code-input"
+                 maxlength="6" inputmode="numeric" pattern="[0-9]*"
+                 placeholder="000000" autocomplete="off">
+          <button id="btn-join-code" class="btn btn-primary" type="button">OK</button>
+        </div>
+      </div>
+
+      <div class="online-divider"><span>ou</span></div>
+
+      <div class="form-group">
+        <p class="label">Plateaux publics</p>
+        <div id="public-rooms-list" class="public-rooms-list" role="list"
+             aria-label="Liste des plateaux publics">
+          <p class="hint">Chargement…</p>
+        </div>
+      </div>
+
+      <p id="join-error" class="online-error" hidden aria-live="assertive"></p>
+
+      <button id="btn-join-back" class="btn-back" type="button">← Retour</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       SCREEN – Online Lobby
+  ══════════════════════════════════════════════════════════ -->
+  <div id="screen-online-lobby" class="screen" aria-label="Salle d'attente" hidden>
+    <div class="setup-card" role="region" aria-labelledby="lobby-title">
+      <h2 id="lobby-title" class="setup-title">Salle d'attente</h2>
+
+      <p id="lobby-code" class="lobby-code" hidden>
+        Code : <strong id="lobby-code-value"></strong>
+      </p>
+
+      <div id="lobby-players" class="lobby-players" role="list" aria-label="Joueurs connectés"></div>
+
+      <p id="lobby-status" class="hint" aria-live="polite">En attente de joueurs…</p>
+
+      <button id="btn-lobby-start" class="btn btn-primary btn-large" type="button" hidden>
+        Lancer la partie
+      </button>
+
+      <button id="btn-lobby-leave" class="btn-back" type="button">← Quitter</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
        SCREEN 5 – Stats
   ══════════════════════════════════════════════════════════ -->
   <div id="screen-stats" class="screen" aria-label="Statistiques" hidden>
@@ -160,6 +288,9 @@
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
   <script src="bundle.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

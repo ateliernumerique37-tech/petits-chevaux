@@ -1062,6 +1062,239 @@
   }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
+  // js/online.js
+  var NAME_KEY = "petits-chevaux-player-name";
+  var COLOR_ORDER2 = ["red", "green", "yellow", "blue"];
+  var db = null;
+  var auth = null;
+  var currentUser = null;
+  var currentRoomId = null;
+  var hostFlag = false;
+  var cleanupFns = [];
+  function fb() {
+    return window.firebase;
+  }
+  function isFirebaseAvailable() {
+    return !!fb();
+  }
+  function initFirebase() {
+    if (db) return;
+    const f = fb();
+    if (!f) return;
+    f.initializeApp({
+      apiKey: "AIzaSyBKEtNjA0JOwUSP1lUjxXWHkkK_pDZPf_c",
+      authDomain: "petits-chevaux-online.firebaseapp.com",
+      databaseURL: "https://petits-chevaux-online-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "petits-chevaux-online",
+      appId: "1:275251725173:web:06839fa2ae3f087a89093c"
+    });
+    db = f.database();
+    auth = f.auth();
+  }
+  async function signIn() {
+    if (currentUser) return currentUser;
+    initFirebase();
+    const cred = await auth.signInAnonymously();
+    currentUser = cred.user;
+    return currentUser;
+  }
+  function getUid() {
+    return currentUser?.uid || null;
+  }
+  function isHost() {
+    return hostFlag;
+  }
+  function getSavedName() {
+    try {
+      return localStorage.getItem(NAME_KEY) || "";
+    } catch {
+      return "";
+    }
+  }
+  function saveName(name) {
+    try {
+      localStorage.setItem(NAME_KEY, name);
+    } catch {
+    }
+  }
+  function generateCode() {
+    let code = "";
+    for (let i = 0; i < 6; i++) code += Math.floor(Math.random() * 10);
+    return code;
+  }
+  async function createRoom({ playerName, maxPlayers, isPublic, winMode }) {
+    await signIn();
+    saveName(playerName);
+    const roomRef = db.ref("rooms").push();
+    const roomId = roomRef.key;
+    const code = isPublic ? null : generateCode();
+    const config = {
+      hostId: currentUser.uid,
+      hostName: playerName,
+      maxPlayers,
+      public: isPublic,
+      createdAt: fb().database.ServerValue.TIMESTAMP,
+      winMode: winMode || "all"
+    };
+    if (code) config.code = code;
+    const updates = {};
+    updates["rooms/" + roomId + "/config"] = config;
+    updates["rooms/" + roomId + "/status"] = "waiting";
+    updates["rooms/" + roomId + "/players/" + currentUser.uid] = {
+      name: playerName,
+      color: "red",
+      connected: true,
+      lastSeen: fb().database.ServerValue.TIMESTAMP
+    };
+    if (isPublic) {
+      updates["publicRooms/" + roomId] = {
+        hostName: playerName,
+        playerCount: 1,
+        maxPlayers,
+        code: "",
+        winMode: winMode || "all"
+      };
+    }
+    if (code) updates["roomCodes/" + code] = roomId;
+    await db.ref().update(updates);
+    const playerRef = db.ref("rooms/" + roomId + "/players/" + currentUser.uid);
+    playerRef.child("connected").onDisconnect().set(false);
+    playerRef.child("lastSeen").onDisconnect().set(fb().database.ServerValue.TIMESTAMP);
+    currentRoomId = roomId;
+    hostFlag = true;
+    return { roomId, code };
+  }
+  async function joinRoom(roomId, playerName) {
+    await signIn();
+    saveName(playerName);
+    const roomRef = db.ref("rooms/" + roomId);
+    const [configSnap, playersSnap, statusSnap] = await Promise.all([
+      roomRef.child("config").once("value"),
+      roomRef.child("players").once("value"),
+      roomRef.child("status").once("value")
+    ]);
+    const config = configSnap.val();
+    if (!config) throw new Error("Plateau introuvable.");
+    if (statusSnap.val() !== "waiting") throw new Error("La partie a d\xE9j\xE0 commenc\xE9.");
+    const players = playersSnap.val() || {};
+    if (players[currentUser.uid]) {
+      await roomRef.child("players/" + currentUser.uid + "/connected").set(true);
+      currentRoomId = roomId;
+      hostFlag = config.hostId === currentUser.uid;
+      setupPresence(roomId);
+      return { roomId, color: players[currentUser.uid].color, config };
+    }
+    const count = Object.keys(players).length;
+    if (count >= config.maxPlayers) throw new Error("Le plateau est complet.");
+    const usedColors = new Set(Object.values(players).map((p) => p.color));
+    const myColor2 = COLOR_ORDER2.find((c) => !usedColors.has(c));
+    if (!myColor2) throw new Error("Plus de couleur disponible.");
+    await roomRef.child("players/" + currentUser.uid).set({
+      name: playerName,
+      color: myColor2,
+      connected: true,
+      lastSeen: fb().database.ServerValue.TIMESTAMP
+    });
+    if (config.public) {
+      db.ref("publicRooms/" + roomId + "/playerCount").set(count + 1);
+    }
+    setupPresence(roomId);
+    currentRoomId = roomId;
+    hostFlag = false;
+    return { roomId, color: myColor2, config };
+  }
+  async function joinRoomByCode(code, playerName) {
+    await signIn();
+    const snap = await db.ref("roomCodes/" + code).once("value");
+    const roomId = snap.val();
+    if (!roomId) throw new Error("Code invalide.");
+    return joinRoom(roomId, playerName);
+  }
+  function setupPresence(roomId) {
+    const playerRef = db.ref("rooms/" + roomId + "/players/" + currentUser.uid);
+    playerRef.child("connected").onDisconnect().set(false);
+    playerRef.child("lastSeen").onDisconnect().set(fb().database.ServerValue.TIMESTAMP);
+  }
+  function listenPublicRooms(callback) {
+    initFirebase();
+    if (!db) {
+      callback([]);
+      return () => {
+      };
+    }
+    const ref = db.ref("publicRooms").limitToLast(20);
+    const handler = ref.on("value", (snap) => {
+      const rooms = [];
+      snap.forEach((child) => {
+        const val = child.val();
+        if (val && val.playerCount < val.maxPlayers) {
+          rooms.push({ id: child.key, ...val });
+        }
+      });
+      callback(rooms);
+    });
+    const unsub = () => ref.off("value", handler);
+    cleanupFns.push(unsub);
+    return unsub;
+  }
+  function listenRoom(roomId, callbacks) {
+    const roomRef = db.ref("rooms/" + roomId);
+    const handlers = [];
+    if (callbacks.onPlayers) {
+      const h = roomRef.child("players").on("value", (snap) => callbacks.onPlayers(snap.val() || {}));
+      handlers.push(() => roomRef.child("players").off("value", h));
+    }
+    if (callbacks.onStatus) {
+      const h = roomRef.child("status").on("value", (snap) => callbacks.onStatus(snap.val()));
+      handlers.push(() => roomRef.child("status").off("value", h));
+    }
+    if (callbacks.onGameState) {
+      const h = roomRef.child("gameState").on("value", (snap) => callbacks.onGameState(snap.val()));
+      handlers.push(() => roomRef.child("gameState").off("value", h));
+    }
+    cleanupFns.push(...handlers);
+    return () => handlers.forEach((fn) => fn());
+  }
+  async function writeGameState(gs) {
+    if (!currentRoomId) return;
+    await db.ref("rooms/" + currentRoomId + "/gameState").set(gs);
+  }
+  async function setRoomStatus(status) {
+    if (!currentRoomId) return;
+    await db.ref("rooms/" + currentRoomId + "/status").set(status);
+    if (status === "playing" || status === "finished") {
+      db.ref("publicRooms/" + currentRoomId).remove();
+    }
+  }
+  async function leaveRoom() {
+    if (!currentRoomId || !currentUser) return;
+    const roomRef = db.ref("rooms/" + currentRoomId);
+    roomRef.child("players/" + currentUser.uid + "/connected").onDisconnect().cancel();
+    roomRef.child("players/" + currentUser.uid + "/lastSeen").onDisconnect().cancel();
+    const configSnap = await roomRef.child("config").once("value");
+    const config = configSnap.val();
+    if (config && config.hostId === currentUser.uid) {
+      const updates = {};
+      updates["rooms/" + currentRoomId] = null;
+      updates["publicRooms/" + currentRoomId] = null;
+      if (config.code) updates["roomCodes/" + config.code] = null;
+      await db.ref().update(updates);
+    } else {
+      await roomRef.child("players/" + currentUser.uid).remove();
+      if (config && config.public) {
+        const playersSnap = await roomRef.child("players").once("value");
+        db.ref("publicRooms/" + currentRoomId + "/playerCount").set(playersSnap.numChildren());
+      }
+    }
+    cleanupAll();
+    currentRoomId = null;
+    hostFlag = false;
+  }
+  function cleanupAll() {
+    cleanupFns.forEach((fn) => fn());
+    cleanupFns = [];
+  }
+
   // js/main.js
   var state = null;
   var aiPlayers = /* @__PURE__ */ new Set();
@@ -1070,14 +1303,29 @@
   var aiDifficulty = "normal";
   var turnCount = 0;
   var gameStartTime = 0;
+  var isOnline = false;
+  var myColor = null;
+  var onlineSeq = -1;
+  var onlinePlayersMap = {};
+  var roomUnsub = null;
+  var onlineName = "";
+  var lastOnlineAction = null;
   var AI_NAMES = ["Bernard", "C\xE9line", "Marie"];
   var SAVE_KEY = "petits-chevaux-save";
   var STATS_KEY2 = "petits-chevaux-stats";
+  var $2 = (id) => document.getElementById(id);
   function playerLabel(color) {
+    if (isOnline) return onlinePlayerName(color);
     return aiPlayers.has(color) ? `${aiNames[color]} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
   }
+  function onlinePlayerName(color) {
+    for (const p of Object.values(onlinePlayersMap)) {
+      if (p.color === color) return `${p.name} (${COLOR_NAMES[color]})`;
+    }
+    return COLOR_NAMES[color];
+  }
   function saveGame() {
-    if (!state || state.phase === "game-over") return;
+    if (!state || state.phase === "game-over" || isOnline) return;
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
         state,
@@ -1117,7 +1365,8 @@
         aiDifficulty,
         winMode: state.winMode,
         turns: turnCount,
-        duration: Math.round((Date.now() - gameStartTime) / 1e3)
+        duration: Math.round((Date.now() - gameStartTime) / 1e3),
+        online: isOnline
       });
       while (stats.length > 100) stats.shift();
       localStorage.setItem(STATS_KEY2, JSON.stringify(stats));
@@ -1140,7 +1389,8 @@
   var motionListenerAdded = false;
   function onDeviceMotion(e) {
     if (!state || state.phase !== "rolling" || aiPlayers.has(state.currentColor)) return;
-    const btn = document.getElementById("btn-dice");
+    if (isOnline && state.currentColor !== myColor) return;
+    const btn = $2("btn-dice");
     if (btn && btn.disabled) return;
     const g = e.accelerationIncludingGravity;
     if (!g) return;
@@ -1168,10 +1418,14 @@
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
     initThemeToggle();
-    createBoard(document.getElementById("board-container"));
+    createBoard($2("board-container"));
     initSetupScreen(startGame);
     initDiceButton(onDiceClick);
     initWinnerScreen(() => {
+      if (isOnline) {
+        leaveRoom();
+        resetOnline();
+      }
       showResumeButton(false);
       showScreen("setup");
     });
@@ -1181,13 +1435,19 @@
       announce(getFullSituation(state));
     });
     initQuitButton(() => {
-      clearSave();
+      if (isOnline) {
+        leaveRoom();
+        resetOnline();
+      } else {
+        clearSave();
+      }
       state = null;
       showResumeButton(false);
       showScreen("setup");
     });
     initResumeButton(resumeGame);
     initStatsScreen(() => showScreen("setup"));
+    initOnlineScreens();
     document.addEventListener("keydown", handleKeyboard);
     showResumeButton(!!loadSave());
     showScreen("setup");
@@ -1198,8 +1458,9 @@
     switch (e.code) {
       case "KeyD":
         if (state && state.phase === "rolling" && !aiPlayers.has(state.currentColor)) {
+          if (isOnline && state.currentColor !== myColor) break;
           e.preventDefault();
-          const btn = document.getElementById("btn-dice");
+          const btn = $2("btn-dice");
           if (!btn.disabled) onDiceClick();
         }
         break;
@@ -1208,6 +1469,7 @@
       case "Digit3":
       case "Digit4":
         if (state && state.phase === "selecting" && !aiPlayers.has(state.currentColor)) {
+          if (isOnline && state.currentColor !== myColor) break;
           e.preventDefault();
           const id = parseInt(e.code.replace("Digit", "")) - 1;
           if (state.validMoveIds.includes(id)) onHorseSelected(id);
@@ -1228,6 +1490,8 @@
   function startGame(playerCount, isAiMode, winMode, difficulty) {
     unlockAudio();
     requestMotionPermission();
+    isOnline = false;
+    myColor = null;
     aiDifficulty = difficulty || "normal";
     turnCount = 0;
     gameStartTime = Date.now();
@@ -1275,6 +1539,21 @@
     state.lastDice = null;
     state.validMoveIds = [];
     updateTurnBanner(state.currentColor, state.phase, null);
+    if (isOnline) {
+      const detail = lastOnlineAction ? { prevType: lastOnlineAction.type, prevColor: lastOnlineAction.color, prevEvents: lastOnlineAction.events } : {};
+      lastOnlineAction = null;
+      syncOnlineState("turn-start", detail);
+      if (state.currentColor !== myColor) {
+        setDiceEnabled(false);
+        announce(`Tour de ${onlinePlayerName(state.currentColor)}.`);
+        return;
+      }
+      setDiceEnabled(true);
+      const summary2 = getTurnSummary(state);
+      announce(`Votre tour ! ${summary2}. Lancez le d\xE9.`);
+      setTimeout(() => $2("btn-dice").focus(), 50);
+      return;
+    }
     const colorName = COLOR_NAMES[state.currentColor];
     const summary = getTurnSummary(state);
     if (aiPlayers.has(state.currentColor)) {
@@ -1284,7 +1563,7 @@
     } else {
       setDiceEnabled(true);
       announce(`Tour de ${colorName}. ${summary}. Lancez le d\xE9.`);
-      setTimeout(() => document.getElementById("btn-dice").focus(), 50);
+      setTimeout(() => $2("btn-dice").focus(), 50);
     }
     saveGame();
   }
@@ -1343,6 +1622,7 @@
   }
   function onDiceClick() {
     if (state.phase !== "rolling") return;
+    if (isOnline && state.currentColor !== myColor) return;
     unlockAudio();
     setDiceEnabled(false);
     play("dice-roll");
@@ -1371,6 +1651,7 @@
           announce(`Trois 6 de suite ! Tour perdu.`, true);
           logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
         }
+        if (isOnline) lastOnlineAction = { type: "penalty", color: state.currentColor, events: ["penalty"] };
         setTimeout(() => endTurn(false), 2e3);
         return;
       }
@@ -1387,10 +1668,12 @@
         logEvent(`${colorName} : aucun mouvement`, state.currentColor);
         play("pass-turn");
         vibrate([30, 30, 30]);
+        if (isOnline) lastOnlineAction = { type: "pass", color: state.currentColor, events: [] };
         setTimeout(() => endTurn(false), 1200);
         return;
       }
       state.phase = "selecting";
+      if (isOnline) syncOnlineState("dice", { dice: value, playerColor: state.currentColor });
       if (ids.length === 1) {
         announce(`${colorName} lance ${value}. Un seul cheval peut bouger.`);
         const horse = state.horses.find((h) => h.color === state.currentColor && h.id === ids[0]);
@@ -1415,7 +1698,9 @@
     const events = applyMove(state, horseId, dice);
     let hadCapture = false;
     let moverCell = "";
+    const eventTypes = [];
     for (const ev of events) {
+      eventTypes.push(ev.type);
       if (ev.type === "exit-stable" || ev.type === "move") {
         const horse = state.horses.find((h) => h.color === ev.color && h.id === ev.horseId);
         moveHorse(horse);
@@ -1441,7 +1726,7 @@
         moveHorse(captured);
         play("capture");
         vibrate([100, 50, 150]);
-        const replayMsg = aiPlayers.has(ev.byColor) ? `${aiNames[ev.byColor]} rejoue !` : "Vous rejouez !";
+        const replayMsg = isOnline && ev.byColor === myColor || !isOnline && !aiPlayers.has(ev.byColor) ? "Vous rejouez !" : `${playerLabel(ev.byColor)} rejoue !`;
         announce(
           `Capture ! Cheval ${COLOR_NAMES[ev.capturedColor]} renvoy\xE9 \xE0 l'\xE9curie. ${replayMsg}`,
           true
@@ -1466,13 +1751,20 @@
         state.players.forEach((c) => {
           nameMap[c] = playerLabel(c);
         });
+        if (isOnline) {
+          syncOnlineState("win", { winner: ev.color });
+          setRoomStatus("finished");
+        }
         setTimeout(() => {
           play("victory");
           vibrate([100, 50, 100, 50, 300]);
-          showWinner(ev.color, sessionScores, nameMap);
+          showWinner(ev.color, isOnline ? {} : sessionScores, nameMap);
         }, 600);
         return;
       }
+    }
+    if (isOnline) {
+      lastOnlineAction = { type: "move", color: state.currentColor, events: eventTypes };
     }
     const extraTurn = dice === 6 || hadCapture;
     setTimeout(() => endTurn(extraTurn), 600);
@@ -1485,5 +1777,370 @@
     }
     advanceTurn(state);
     beginTurn();
+  }
+  function syncOnlineState(actionType, detail = {}) {
+    if (!isOnline) return;
+    onlineSeq++;
+    writeGameState({
+      horses: state.horses.map((h) => ({ color: h.color, id: h.id, relPos: h.relPos })),
+      currentColor: state.currentColor,
+      phase: state.phase,
+      lastDice: state.lastDice,
+      consecutiveSixes: state.consecutiveSixes || 0,
+      validMoveIds: state.validMoveIds || [],
+      players: state.players,
+      winMode: state.winMode,
+      seq: onlineSeq,
+      lastAction: { type: actionType, uid: getUid(), ...detail }
+    });
+  }
+  function onRemoteGameState(gs) {
+    if (!gs || !isOnline || !state) return;
+    if (gs.seq <= onlineSeq) return;
+    onlineSeq = gs.seq;
+    const isMyAction = gs.lastAction && gs.lastAction.uid === getUid();
+    if (isMyAction) return;
+    for (const gh of gs.horses) {
+      const h = state.horses.find((x) => x.color === gh.color && x.id === gh.id);
+      if (h) h.relPos = gh.relPos;
+    }
+    state.currentColor = gs.currentColor;
+    state.phase = gs.phase;
+    state.lastDice = gs.lastDice;
+    state.consecutiveSixes = gs.consecutiveSixes || 0;
+    state.validMoveIds = gs.validMoveIds || [];
+    state.horses.forEach((h) => moveHorse(h));
+    updateTurnBanner(state.currentColor, state.phase, state.lastDice);
+    const action = gs.lastAction;
+    if (action) {
+      if (action.type === "dice") {
+        play("dice-roll");
+        vibrate(50);
+        if (action.dice === 6) {
+          play("dice-six");
+          vibrate([80, 40, 80]);
+        }
+        const name = onlinePlayerName(action.playerColor || gs.currentColor);
+        announce(`${name} lance ${action.dice}.`);
+        logEvent(`${COLOR_NAMES[action.playerColor || gs.currentColor]} lance ${action.dice}`, action.playerColor || gs.currentColor);
+      }
+      if (action.type === "turn-start" && action.prevType) {
+        if (action.prevEvents) {
+          for (const et of action.prevEvents) {
+            if (et === "capture") play("capture");
+            else if (et === "home-stretch") play("home-stretch");
+            else if (et === "exit-stable") play("exit-stable");
+            else if (et === "move" || et === "exit-stable") play("move");
+          }
+        }
+        if (action.prevType === "pass") {
+          play("pass-turn");
+          logEvent(`${COLOR_NAMES[action.prevColor]} : aucun mouvement`, action.prevColor);
+        }
+        if (action.prevType === "penalty") {
+          play("pass-turn");
+          logEvent(`${COLOR_NAMES[action.prevColor]} : trois 6, tour perdu`, action.prevColor);
+        }
+        if (action.prevType === "move") {
+          logEvent(`${COLOR_NAMES[action.prevColor]} a jou\xE9`, action.prevColor);
+        }
+      }
+      if (action.type === "win") {
+        play("victory");
+        vibrate([100, 50, 100, 50, 300]);
+        const nameMap = {};
+        state.players.forEach((c) => {
+          nameMap[c] = onlinePlayerName(c);
+        });
+        showWinner(action.winner, {}, nameMap);
+        return;
+      }
+    }
+    if (state.currentColor === myColor && state.phase === "rolling") {
+      setDiceEnabled(true);
+      const summary = getTurnSummary(state);
+      announce(`Votre tour ! ${summary}. Lancez le d\xE9.`);
+      setTimeout(() => $2("btn-dice").focus(), 50);
+    }
+  }
+  function showOnlineError(id, msg) {
+    const el2 = $2(id);
+    if (!el2) return;
+    el2.textContent = msg;
+    el2.hidden = false;
+  }
+  function hideOnlineError(id) {
+    const el2 = $2(id);
+    if (el2) el2.hidden = true;
+  }
+  function esc(str) {
+    const d = document.createElement("div");
+    d.textContent = str;
+    return d.innerHTML;
+  }
+  var publicRoomsUnsub = null;
+  function initOnlineScreens() {
+    const onlineBtn = $2("btn-online");
+    if (!onlineBtn) return;
+    onlineBtn.addEventListener("click", () => {
+      if (!isFirebaseAvailable()) {
+        announce("Mode en ligne indisponible hors connexion.", true);
+        return;
+      }
+      $2("online-name").value = getSavedName();
+      hideOnlineError("online-error");
+      showScreen("online-menu");
+    });
+    $2("btn-online-back").addEventListener("click", () => showScreen("setup"));
+    $2("btn-create-room").addEventListener("click", () => {
+      const name = $2("online-name").value.trim();
+      if (!name) {
+        showOnlineError("online-error", "Entrez un pseudo.");
+        return;
+      }
+      onlineName = name;
+      hideOnlineError("create-error");
+      showScreen("online-create");
+    });
+    $2("btn-join-room").addEventListener("click", () => {
+      const name = $2("online-name").value.trim();
+      if (!name) {
+        showOnlineError("online-error", "Entrez un pseudo.");
+        return;
+      }
+      onlineName = name;
+      hideOnlineError("join-error");
+      showScreen("online-join");
+      startPublicRoomsListener();
+    });
+    $2("btn-create-cancel").addEventListener("click", () => showScreen("online-menu"));
+    $2("btn-create-confirm").addEventListener("click", onCreateRoom);
+    $2("btn-join-back").addEventListener("click", () => {
+      stopPublicRoomsListener();
+      showScreen("online-menu");
+    });
+    $2("btn-join-code").addEventListener("click", onJoinByCode);
+    $2("join-code").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") onJoinByCode();
+    });
+    $2("btn-lobby-leave").addEventListener("click", onLeaveLobby);
+    $2("btn-lobby-start").addEventListener("click", onStartOnlineGame);
+  }
+  function startPublicRoomsListener() {
+    stopPublicRoomsListener();
+    publicRoomsUnsub = listenPublicRooms((rooms) => {
+      const list = $2("public-rooms-list");
+      if (rooms.length === 0) {
+        list.innerHTML = '<p class="public-rooms-empty">Aucun plateau disponible.</p>';
+        return;
+      }
+      list.innerHTML = "";
+      for (const room of rooms) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "public-room-item";
+        item.setAttribute("role", "listitem");
+        item.innerHTML = `<span class="public-room-host">${esc(room.hostName)}</span><span class="public-room-info">${room.playerCount}/${room.maxPlayers}</span>`;
+        item.addEventListener("click", () => onJoinPublicRoom(room.id));
+        list.appendChild(item);
+      }
+    });
+  }
+  function stopPublicRoomsListener() {
+    if (publicRoomsUnsub) {
+      publicRoomsUnsub();
+      publicRoomsUnsub = null;
+    }
+  }
+  async function onCreateRoom() {
+    const btn = $2("btn-create-confirm");
+    btn.disabled = true;
+    hideOnlineError("create-error");
+    try {
+      const result = await createRoom({
+        playerName: onlineName,
+        maxPlayers: parseInt($2("online-max-players").value, 10),
+        isPublic: $2("online-visibility").value === "public",
+        winMode: $2("online-win-mode").value
+      });
+      enterLobby(result.roomId, result.code, "red");
+    } catch (err) {
+      showOnlineError("create-error", err.message || "Erreur de cr\xE9ation.");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  async function onJoinByCode() {
+    const code = $2("join-code").value.trim();
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      showOnlineError("join-error", "Entrez un code \xE0 6 chiffres.");
+      return;
+    }
+    hideOnlineError("join-error");
+    try {
+      const result = await joinRoomByCode(code, onlineName);
+      stopPublicRoomsListener();
+      enterLobby(result.roomId, null, result.color);
+    } catch (err) {
+      showOnlineError("join-error", err.message || "Impossible de rejoindre.");
+    }
+  }
+  async function onJoinPublicRoom(roomId) {
+    hideOnlineError("join-error");
+    try {
+      const result = await joinRoom(roomId, onlineName);
+      stopPublicRoomsListener();
+      enterLobby(result.roomId, null, result.color);
+    } catch (err) {
+      showOnlineError("join-error", err.message || "Impossible de rejoindre.");
+    }
+  }
+  var COLOR_PAL = { red: "#c62828", green: "#2e7d32", yellow: "#f57f17", blue: "#1565c0" };
+  function enterLobby(roomId, code, color) {
+    myColor = color;
+    if (code) {
+      $2("lobby-code").hidden = false;
+      $2("lobby-code-value").textContent = code;
+    } else {
+      $2("lobby-code").hidden = true;
+    }
+    $2("btn-lobby-start").hidden = !isHost();
+    $2("btn-lobby-start").disabled = true;
+    showScreen("online-lobby");
+    roomUnsub = listenRoom(roomId, {
+      onPlayers: (players) => {
+        onlinePlayersMap = players;
+        renderLobbyPlayers(players);
+        const count = Object.keys(players).length;
+        if (isHost()) {
+          $2("btn-lobby-start").disabled = count < 2;
+          $2("lobby-status").textContent = count < 2 ? "En attente d'un autre joueur\u2026" : `${count} joueurs connect\xE9s. Pr\xEAt !`;
+        } else {
+          $2("lobby-status").textContent = `${count} joueurs connect\xE9s. En attente du lancement\u2026`;
+        }
+      },
+      onStatus: (status) => {
+        if (status === null) {
+          announce("Le plateau a \xE9t\xE9 supprim\xE9.", true);
+          resetOnline();
+          showScreen("setup");
+        }
+      },
+      onGameState: (gs) => {
+        if (!gs) return;
+        if (!state) {
+          initOnlineGameFromState(gs);
+        } else {
+          onRemoteGameState(gs);
+        }
+      }
+    });
+  }
+  function renderLobbyPlayers(players) {
+    const container = $2("lobby-players");
+    container.innerHTML = "";
+    const uid = getUid();
+    for (const [pid, p] of Object.entries(players)) {
+      const div = document.createElement("div");
+      div.className = "lobby-player";
+      div.setAttribute("role", "listitem");
+      const dot = document.createElement("span");
+      dot.className = "lobby-player-dot";
+      dot.style.background = COLOR_PAL[p.color] || "#888";
+      div.appendChild(dot);
+      const name = document.createElement("span");
+      name.className = "lobby-player-name";
+      name.textContent = `${p.name} \u2014 ${COLOR_NAMES[p.color]}`;
+      div.appendChild(name);
+      if (pid === uid) {
+        const tag = document.createElement("span");
+        tag.className = "lobby-player-tag you";
+        tag.textContent = "Vous";
+        div.appendChild(tag);
+      }
+      container.appendChild(div);
+    }
+  }
+  async function onStartOnlineGame() {
+    if (!isHost()) return;
+    const players = Object.values(onlinePlayersMap);
+    const playerCount = players.length;
+    if (playerCount < 2) return;
+    unlockAudio();
+    requestMotionPermission();
+    isOnline = true;
+    turnCount = 0;
+    gameStartTime = Date.now();
+    aiPlayers = /* @__PURE__ */ new Set();
+    aiNames = {};
+    aiDifficulty = "normal";
+    onlineSeq = -1;
+    lastOnlineAction = null;
+    const winMode = $2("online-win-mode")?.value || "all";
+    state = createGame(playerCount, winMode);
+    state.players.forEach((color) => {
+      if (!(color in sessionScores)) sessionScores[color] = 0;
+    });
+    initHorses(state.horses);
+    clearEventLog();
+    showScreen("game");
+    await setRoomStatus("playing");
+    beginTurn();
+  }
+  function initOnlineGameFromState(gs) {
+    unlockAudio();
+    requestMotionPermission();
+    isOnline = true;
+    turnCount = 0;
+    gameStartTime = Date.now();
+    aiPlayers = /* @__PURE__ */ new Set();
+    aiNames = {};
+    aiDifficulty = "normal";
+    onlineSeq = gs.seq || 0;
+    lastOnlineAction = null;
+    state = {
+      players: gs.players,
+      horses: gs.horses.map((h) => ({ color: h.color, id: h.id, relPos: h.relPos })),
+      currentColor: gs.currentColor,
+      phase: gs.phase,
+      lastDice: gs.lastDice,
+      consecutiveSixes: gs.consecutiveSixes || 0,
+      validMoveIds: gs.validMoveIds || [],
+      winMode: gs.winMode
+    };
+    initHorses(state.horses);
+    clearEventLog();
+    showScreen("game");
+    updateTurnBanner(state.currentColor, state.phase, null);
+    if (state.currentColor === myColor && state.phase === "rolling") {
+      setDiceEnabled(true);
+      announce("La partie commence ! Votre tour, lancez le d\xE9.");
+      setTimeout(() => $2("btn-dice").focus(), 50);
+    } else {
+      setDiceEnabled(false);
+      announce(`La partie commence ! Tour de ${onlinePlayerName(state.currentColor)}.`);
+    }
+  }
+  async function onLeaveLobby() {
+    if (roomUnsub) {
+      roomUnsub();
+      roomUnsub = null;
+    }
+    await leaveRoom();
+    resetOnline();
+    showScreen("online-menu");
+  }
+  function resetOnline() {
+    isOnline = false;
+    myColor = null;
+    onlineSeq = -1;
+    onlinePlayersMap = {};
+    lastOnlineAction = null;
+    state = null;
+    if (roomUnsub) {
+      roomUnsub();
+      roomUnsub = null;
+    }
+    cleanupAll();
   }
 })();
