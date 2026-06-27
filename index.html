@@ -33,9 +33,9 @@
       <div class="form-group">
         <label for="player-count" class="label">Nombre de joueurs</label>
         <select id="player-count" class="select" aria-describedby="player-count-hint">
-          <option value="2">2 joueurs — Rouge &amp; Vert</option>
+          <option value="2" selected>2 joueurs — Rouge &amp; Vert</option>
           <option value="3">3 joueurs — Rouge, Vert &amp; Jaune</option>
-          <option value="4" selected>4 joueurs — Rouge, Vert, Jaune &amp; Bleu</option>
+          <option value="4">4 joueurs — Rouge, Vert, Jaune &amp; Bleu</option>
         </select>
         <p id="player-count-hint" class="hint">Chaque joueur joue à son tour en passant le téléphone.</p>
       </div>
@@ -44,7 +44,7 @@
         <label for="ai-mode" class="label">Mode de jeu</label>
         <select id="ai-mode" class="select" aria-describedby="ai-mode-hint">
           <option value="human">Tous joueurs humains</option>
-          <option value="ai">Jouer contre Bernard (IA)</option>
+          <option value="ai" selected>Jouer contre Bernard (IA)</option>
         </select>
         <p id="ai-mode-hint" class="hint">Vous jouez Rouge ; l'ordinateur (Bernard, Céline, Marie) contrôle les autres couleurs.</p>
       </div>
@@ -63,7 +63,7 @@
         <label for="win-mode" class="label">Condition de victoire</label>
         <select id="win-mode" class="select" aria-describedby="win-mode-hint">
           <option value="all">Amener ses 4 chevaux au centre (règle officielle)</option>
-          <option value="one">Un seul cheval au centre (partie rapide)</option>
+          <option value="one" selected>Un seul cheval au centre (partie rapide)</option>
         </select>
         <p id="win-mode-hint" class="hint">Règle traditionnelle : les 4 chevaux. Partie rapide : le premier cheval arrivé gagne.</p>
       </div>

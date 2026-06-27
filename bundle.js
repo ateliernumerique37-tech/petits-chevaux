@@ -813,10 +813,11 @@
     const aiSelect = $("ai-mode");
     const diffGroup = $("difficulty-group");
     if (aiSelect && diffGroup) {
-      const toggle = () => {
+      const toggle = (fromUser = false) => {
         diffGroup.hidden = aiSelect.value !== "ai";
+        if (fromUser) aiSelect.focus();
       };
-      aiSelect.addEventListener("change", toggle);
+      aiSelect.addEventListener("change", () => toggle(true));
       toggle();
     }
   }
