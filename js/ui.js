@@ -34,12 +34,22 @@ export function initSetupScreen(onStart) {
     onStart(count, aiMode, winMode, difficulty);
   });
 
-  // Show/hide AI difficulty selector
+  // Return focus to each select after selection (mobile browsers / screen readers
+  // sometimes move focus away after the native picker closes or after a DOM change)
+  ['player-count', 'win-mode', 'ai-difficulty'].forEach(id => {
+    const sel = $(id);
+    if (sel) sel.addEventListener('change', () => sel.focus());
+  });
+
+  // Show/hide AI difficulty selector + return focus to ai-mode
   const aiSelect = $('ai-mode');
   const diffGroup = $('difficulty-group');
   if (aiSelect && diffGroup) {
-    const toggle = () => { diffGroup.hidden = aiSelect.value !== 'ai'; };
-    aiSelect.addEventListener('change', toggle);
+    const toggle = (fromUser = false) => {
+      diffGroup.hidden = aiSelect.value !== 'ai';
+      if (fromUser) aiSelect.focus();
+    };
+    aiSelect.addEventListener('change', () => toggle(true));
     toggle();
   }
 }

@@ -734,6 +734,8 @@
   // js/sound.js
   var ctx = null;
   var buffers = /* @__PURE__ */ new Map();
+  var decoding = /* @__PURE__ */ new Map();
+  var fetched = /* @__PURE__ */ new Map();
   var SOUNDS = [
     "dice-roll",
     "dice-six",
@@ -745,7 +747,6 @@
     "pass-turn",
     "pass-phone"
   ];
-  var fetched = /* @__PURE__ */ new Map();
   function loadSounds() {
     for (const name of SOUNDS) {
       fetched.set(
@@ -754,36 +755,57 @@
       );
     }
   }
-  function unlockAudio() {
-    if (ctx) {
-      if (ctx.state === "suspended") ctx.resume().catch(() => {
-      });
-      return;
-    }
-    try {
-      ctx = new AudioContext();
-    } catch (e) {
-      return;
-    }
-    Promise.all(SOUNDS.map(async (name) => {
+  function decodeSound(name) {
+    if (buffers.has(name)) return Promise.resolve(buffers.get(name));
+    if (decoding.has(name)) return decoding.get(name);
+    if (!ctx) return Promise.resolve(null);
+    const p = (async () => {
       try {
         const raw = await fetched.get(name);
-        if (raw) buffers.set(name, await ctx.decodeAudioData(raw));
+        if (!raw) return null;
+        const buf = await ctx.decodeAudioData(raw.slice(0));
+        buffers.set(name, buf);
+        return buf;
       } catch (e) {
+        return null;
       }
-    }));
+    })();
+    decoding.set(name, p);
+    return p;
   }
-  function play(name) {
-    if (!ctx || !buffers.has(name)) return;
+  function unlockAudio() {
+    if (!ctx) {
+      try {
+        ctx = new AudioContext();
+      } catch (e) {
+        return;
+      }
+      for (const name of SOUNDS) decodeSound(name);
+    }
     if (ctx.state === "suspended") ctx.resume().catch(() => {
     });
+  }
+  function playBuffer(buf) {
     const src = ctx.createBufferSource();
-    src.buffer = buffers.get(name);
+    src.buffer = buf;
     const gain = ctx.createGain();
     gain.gain.value = 0.75;
     src.connect(gain);
     gain.connect(ctx.destination);
     src.start(0);
+  }
+  function play(name) {
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume().catch(() => {
+    });
+    const buf = buffers.get(name);
+    if (buf) {
+      playBuffer(buf);
+      return;
+    }
+    decodeSound(name).then((b) => {
+      if (b && ctx && ctx.state !== "closed") playBuffer(b);
+    });
   }
 
   // js/ui.js
@@ -1520,6 +1542,7 @@
     initHorses(state.horses);
     clearEventLog();
     showScreen("game");
+    play("exit-stable");
     beginTurn();
   }
   function resumeGame() {
@@ -1935,6 +1958,10 @@
     });
     $2("btn-lobby-leave").addEventListener("click", onLeaveLobby);
     $2("btn-lobby-start").addEventListener("click", onStartOnlineGame);
+    ["online-max-players", "online-visibility", "online-win-mode"].forEach((id) => {
+      const sel = $2(id);
+      if (sel) sel.addEventListener("change", () => sel.focus());
+    });
   }
   function startPublicRoomsListener() {
     stopPublicRoomsListener();
@@ -2094,6 +2121,7 @@
     initHorses(state.horses);
     clearEventLog();
     showScreen("game");
+    play("exit-stable");
     await setRoomStatus("playing");
     beginTurn();
   }
@@ -2121,6 +2149,7 @@
     initHorses(state.horses);
     clearEventLog();
     showScreen("game");
+    play("exit-stable");
     updateTurnBanner(state.currentColor, state.phase, null);
     if (state.currentColor === myColor && state.phase === "rolling") {
       setDiceEnabled(true);

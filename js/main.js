@@ -267,6 +267,7 @@ function startGame(playerCount, isAiMode, winMode, difficulty) {
   clearEventLog();
   showScreen('game');
 
+  play('exit-stable'); // signal sonore de début de partie (chevaux en piste)
   beginTurn();
 }
 
@@ -750,6 +751,12 @@ function initOnlineScreens() {
   $('join-code').addEventListener('keydown', e => { if (e.key === 'Enter') onJoinByCode(); });
   $('btn-lobby-leave').addEventListener('click', onLeaveLobby);
   $('btn-lobby-start').addEventListener('click', onStartOnlineGame);
+
+  // Garder le curseur sur le select après sélection (mobile / lecteur d'écran)
+  ['online-max-players', 'online-visibility', 'online-win-mode'].forEach(id => {
+    const sel = $(id);
+    if (sel) sel.addEventListener('change', () => sel.focus());
+  });
 }
 
 function startPublicRoomsListener() {
@@ -936,6 +943,7 @@ async function onStartOnlineGame() {
   clearEventLog();
   showScreen('game');
 
+  play('exit-stable'); // signal sonore de début de partie
   await setRoomStatus('playing');
   beginTurn();
 }
@@ -968,6 +976,7 @@ function initOnlineGameFromState(gs) {
   clearEventLog();
   showScreen('game');
 
+  play('exit-stable'); // signal sonore de début de partie
   updateTurnBanner(state.currentColor, state.phase, null);
 
   if (state.currentColor === myColor && state.phase === 'rolling') {
