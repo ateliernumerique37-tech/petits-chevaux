@@ -61,16 +61,31 @@ npx esbuild js/main.js --bundle --outfile=bundle.js --format=iife --platform=bro
 À faire **après chaque modification** d'un fichier `js/`. Aucun watch mode, aucune étape de test.
 Le build produit environ **74 kb** (IIFE, non minifié) depuis l'ajout du module online.
 
-### Bump de cache service worker
+### Stratégie de cache service worker (network-first depuis v18)
 
-À chaque déploiement qui modifie des fichiers statiques (HTML, CSS, JS, sons), incrémenter
-la constante `CACHE` dans `service-worker.js` :
+**Le cœur de l'app (HTML, JS, CSS, manifest) est servi en network-first** : le SW va
+toujours chercher la dernière version en ligne, et ne retombe sur le cache qu'en mode
+hors ligne. Les **sons** restent en cache-first (gros fichiers, immuables).
 
-```js
-const CACHE = 'petits-chevaux-vN'; // version actuelle : v17
-```
+Conséquence : **la fraîcheur de la PWA ne dépend plus du bump de `CACHE`**. Tant que
+l'appareil est en ligne, la PWA charge toujours la dernière version déployée — même si
+on oublie d'incrémenter le numéro.
 
-Cela déclenche `skipWaiting()` à l'install, puis `controllerchange` côté client → `window.location.reload()`.
+Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v18**) reste utile mais
+**non critique** : il sert seulement à purger les anciens caches au prochain `activate`.
+
+> **Historique du bug (juin 2026)** : avant v18, la stratégie était **cache-first**.
+> Toute la fraîcheur reposait sur le bump manuel de `CACHE` à chaque déploiement. Un
+> déploiement (écran de config) a modifié `index.html`/`bundle.js` **sans** changer
+> `service-worker.js` → fichier SW byte-identique → `reg.update()` ne détecte rien →
+> le nouveau bundle n'est jamais re-téléchargé. Le navigateur s'en sortait (Ctrl+F5
+> bypasse le SW) mais la **PWA standalone** restait bloquée sur l'ancien cache
+> (pas de rechargement forcé possible). Désinstaller/réinstaller la PWA était le seul
+> contournement. Le passage en network-first élimine définitivement ce mode d'échec.
+
+Le mécanisme client (dans `index.html`) reste en place : `reg.update()` au chargement
+et au retour au premier plan, `updatefound` → `SKIP_WAITING` → `controllerchange` →
+`window.location.reload()`. Il propage proprement un vrai changement de SW.
 
 ---
 
