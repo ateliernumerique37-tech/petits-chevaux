@@ -810,6 +810,10 @@
       const difficulty = $("ai-difficulty")?.value || "normal";
       onStart(count, aiMode, winMode, difficulty);
     });
+    ["player-count", "win-mode", "ai-difficulty"].forEach((id) => {
+      const sel = $(id);
+      if (sel) sel.addEventListener("change", () => sel.focus());
+    });
     const aiSelect = $("ai-mode");
     const diffGroup = $("difficulty-group");
     if (aiSelect && diffGroup) {
