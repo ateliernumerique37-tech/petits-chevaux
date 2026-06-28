@@ -19,6 +19,7 @@ import {
   logEvent, clearEventLog,
   initResumeButton, showResumeButton,
   initStatsScreen, initThemeToggle,
+  initShakeToggle, isShakeEnabled,
 } from './ui.js';
 import {
   isFirebaseAvailable, createRoom, joinRoom, joinRoomByCode,
@@ -126,8 +127,10 @@ const SHAKE_THRESHOLD = 15;
 const SHAKE_COOLDOWN  = 1200;
 let lastShake = 0;
 let motionListenerAdded = false;
+let motionRequestedThisSession = false;
 
 function onDeviceMotion(e) {
+  if (!isShakeEnabled()) return;
   if (!state || state.phase !== 'rolling' || aiPlayers.has(state.currentColor)) return;
   if (isOnline && state.currentColor !== myColor) return;
   const btn = $('btn-dice');
@@ -143,8 +146,11 @@ function onDeviceMotion(e) {
 }
 
 async function requestMotionPermission() {
+  if (!isShakeEnabled()) return;                 // option désactivée : aucune demande
   if (typeof DeviceMotionEvent === 'undefined') return;
-  if (motionListenerAdded) return;
+  if (motionListenerAdded) return;               // déjà accordé
+  if (motionRequestedThisSession) return;        // déjà demandé ce lancement : ne pas reharceler
+  motionRequestedThisSession = true;
   if (typeof DeviceMotionEvent.requestPermission === 'function') {
     try {
       const res = await DeviceMotionEvent.requestPermission();
@@ -160,6 +166,12 @@ async function requestMotionPermission() {
 window.addEventListener('DOMContentLoaded', () => {
   loadSounds();
   initThemeToggle();
+  initShakeToggle(() => {
+    // L'utilisateur vient d'activer « secouer » : redemander la permission
+    // maintenant, dans le contexte du clic (geste requis par iOS).
+    motionRequestedThisSession = false;
+    requestMotionPermission();
+  });
 
   createBoard($('board-container'));
 

@@ -1087,6 +1087,32 @@
       }
     });
   }
+  var SHAKE_KEY = "petits-chevaux-shake";
+  var shakeEnabled = true;
+  function isShakeEnabled() {
+    return shakeEnabled;
+  }
+  function initShakeToggle(onEnable) {
+    try {
+      shakeEnabled = localStorage.getItem(SHAKE_KEY) !== "off";
+    } catch {
+    }
+    const btn = $("btn-shake");
+    if (!btn) return;
+    const render = () => {
+      btn.textContent = shakeEnabled ? "Secouer pour lancer : Activ\xE9" : "Secouer pour lancer : D\xE9sactiv\xE9";
+    };
+    render();
+    btn.addEventListener("click", () => {
+      shakeEnabled = !shakeEnabled;
+      try {
+        localStorage.setItem(SHAKE_KEY, shakeEnabled ? "on" : "off");
+      } catch {
+      }
+      render();
+      if (shakeEnabled && onEnable) onEnable();
+    });
+  }
   var DICE_FACES = ["\u2680", "\u2681", "\u2682", "\u2683", "\u2684", "\u2685"];
 
   // js/online.js
@@ -1419,7 +1445,9 @@
   var SHAKE_COOLDOWN = 1200;
   var lastShake = 0;
   var motionListenerAdded = false;
+  var motionRequestedThisSession = false;
   function onDeviceMotion(e) {
+    if (!isShakeEnabled()) return;
     if (!state || state.phase !== "rolling" || aiPlayers.has(state.currentColor)) return;
     if (isOnline && state.currentColor !== myColor) return;
     const btn = $2("btn-dice");
@@ -1434,8 +1462,11 @@
     }
   }
   async function requestMotionPermission() {
+    if (!isShakeEnabled()) return;
     if (typeof DeviceMotionEvent === "undefined") return;
     if (motionListenerAdded) return;
+    if (motionRequestedThisSession) return;
+    motionRequestedThisSession = true;
     if (typeof DeviceMotionEvent.requestPermission === "function") {
       try {
         const res = await DeviceMotionEvent.requestPermission();
@@ -1450,6 +1481,10 @@
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
     initThemeToggle();
+    initShakeToggle(() => {
+      motionRequestedThisSession = false;
+      requestMotionPermission();
+    });
     createBoard($2("board-container"));
     initSetupScreen(startGame);
     initDiceButton(onDiceClick);

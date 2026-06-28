@@ -2,7 +2,7 @@
 // PLUS critique pour la fraîcheur : la stratégie network-first ci-dessous garantit
 // que la PWA charge toujours la dernière version déployée tant qu'elle est en ligne,
 // même si on oublie de changer ce numéro.
-const CACHE = 'petits-chevaux-v19';
+const CACHE = 'petits-chevaux-v20';
 
 // Pré-cache pour le mode hors ligne uniquement (fallback réseau indisponible).
 const ASSETS = [

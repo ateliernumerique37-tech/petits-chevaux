@@ -326,6 +326,36 @@ export function initThemeToggle() {
   });
 }
 
+// ─── Shake-to-roll toggle (préférence persistante et révocable) ───────────────
+
+const SHAKE_KEY = 'petits-chevaux-shake';
+let shakeEnabled = true;
+
+export function isShakeEnabled() { return shakeEnabled; }
+
+// onEnable() est appelé quand l'utilisateur ACTIVE l'option (geste utilisateur),
+// pour demander la permission de mouvement iOS dans le bon contexte.
+export function initShakeToggle(onEnable) {
+  try { shakeEnabled = localStorage.getItem(SHAKE_KEY) !== 'off'; } catch {}
+
+  const btn = $('btn-shake');
+  if (!btn) return;
+
+  const render = () => {
+    btn.textContent = shakeEnabled
+      ? 'Secouer pour lancer : Activé'
+      : 'Secouer pour lancer : Désactivé';
+  };
+  render();
+
+  btn.addEventListener('click', () => {
+    shakeEnabled = !shakeEnabled;
+    try { localStorage.setItem(SHAKE_KEY, shakeEnabled ? 'on' : 'off'); } catch {}
+    render();
+    if (shakeEnabled && onEnable) onEnable();
+  });
+}
+
 // ─── Dice face glyphs ─────────────────────────────────────────────────────────
 
 const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
