@@ -117,7 +117,7 @@ Contient tout l'état et les règles du jeu. Toutes les fonctions sont pures ou 
 | `rollDice()` | Retourne 1–6 |
 | `getValidMoves(state, dice)` | Retourne les `id` des chevaux déplaçables |
 | `applyMove(state, horseId, dice)` | Applique le mouvement, retourne un tableau d'événements |
-| `applyTripleSixPenalty(state)` | Renvoie le cheval le plus avancé à l'écurie |
+| `applyTripleSixPenalty(state)` | Renvoie à l'écurie le cheval le plus avancé **du circuit** (0-51). Les chevaux du couloir d'arrivée sont protégés ; si aucun cheval sur le circuit → tour perdu sans renvoi |
 | `advanceTurn(state)` | Passe au joueur suivant |
 | `getMoveLabel(state, horse, dice)` | Description ARIA du mouvement pour le lecteur d'écran |
 | `getHorseDescription(horse)` | Description ARIA de la position courante |
@@ -351,6 +351,27 @@ roomCodes/
 **Couleurs :**
 - L'hôte est toujours **Rouge**
 - Les joiners reçoivent la prochaine couleur disponible dans l'ordre : Vert → Jaune → Bleu
+
+**Robustesse en partie (audit juin 2026) :**
+- **Départ d'un joueur en pleine partie** (`handleMidGameDepartures` dans main.js) : annonce
+  urgente, couleur retirée de la rotation (ses chevaux restent sur le plateau), **victoire par
+  abandon** si un seul joueur reste, relance arbitrée du tour si c'était au partant de jouer
+  (arbitre = première couleur restante → écrivain unique, pas de conflit).
+- **Filet anti-blocage** dans `beginTurn` : les tours des couleurs non contrôlées
+  (`connected === false` posé par Firebase après ~60 s de coupure réelle) sont passés avec annonce.
+- **Reconnexion** : dans `joinRoom`, le test « joueur déjà membre » précède le test de statut →
+  un joueur déjà dans la room peut revenir même quand `status === 'playing'` (via code privé ;
+  les rooms publiques en partie ne sont plus listées). ⚠️ Ne jamais remettre le test de statut
+  en premier : ça rend la reconnexion impossible.
+- **Annonces distantes complètes** (`turn-start` avec `prevCell`, `prevCaptured`, `prevReplay`) :
+  le client distant annonce le déplacement (cheval + case), les captures (urgent si c'est le
+  sien) et « rejoue » — indispensable aux joueurs malvoyants.
+- **Écran de victoire protégé** : `onStatus(null)` est ignoré quand `state.phase === 'game-over'`
+  (l'hôte qui ferme la room après la partie n'éjecte plus le perdant de l'écran de victoire).
+- `disarmRoomAutoDelete` **re-arme la présence** après ses `cancel()` (un `cancel()` sur un
+  chemin annule aussi les onDisconnect de tous ses enfants).
+- `sweepOwnOrphanRoom` ne supprime **jamais** une room `playing` encore habitée par un adversaire.
+- `publicRooms/$id/playerCount` : toujours en **transaction** (jamais lecture-puis-set).
 
 ---
 
