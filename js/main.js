@@ -25,7 +25,7 @@ import {
   isFirebaseAvailable, createRoom, joinRoom, joinRoomByCode,
   listenPublicRooms, listenRoom, writeGameState, setRoomStatus,
   leaveRoom, cleanupAll, getUid, isHost, getCurrentRoomId,
-  getSavedName, saveName, disarmRoomAutoDelete,
+  getSavedName, saveName, disarmRoomAutoDelete, sweepOwnOrphanRoom,
 } from './online.js';
 
 let state = null;
@@ -742,6 +742,7 @@ function initOnlineScreens() {
       announce('Mode en ligne indisponible hors connexion.', true);
       return;
     }
+    sweepOwnOrphanRoom(); // nettoie une éventuelle room laissée orpheline la dernière fois
     $('online-name').value = getSavedName();
     hideOnlineError('online-error');
     showScreen('online-menu');

@@ -1,6 +1,7 @@
 'use strict';
 
 const NAME_KEY = 'petits-chevaux-player-name';
+const HOSTED_KEY = 'petits-chevaux-hosted-room';
 const COLOR_ORDER = ['red', 'green', 'yellow', 'blue'];
 
 let db = null;
@@ -56,6 +57,36 @@ function generateCode() {
   return code;
 }
 
+function rememberHostedRoom(roomId, code) {
+  try { localStorage.setItem(HOSTED_KEY, JSON.stringify({ roomId, code })); } catch {}
+}
+
+function forgetHostedRoom() {
+  try { localStorage.removeItem(HOSTED_KEY); } catch {}
+}
+
+// Nettoyage ciblé : supprime une room dont CE joueur est l'hôte et qu'il a
+// laissée orpheline (fermeture brutale en pleine partie, où onDisconnect est
+// désarmé). Appelé quand il revient en mode en ligne. Conforme aux règles :
+// seul l'hôte peut supprimer sa propre room. No-op s'il n'a rien laissé.
+export async function sweepOwnOrphanRoom() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(HOSTED_KEY) || 'null'); } catch {}
+  if (!saved || !saved.roomId) return;
+  try {
+    await signIn();
+    const snap = await db.ref('rooms/' + saved.roomId + '/config/hostId').once('value');
+    if (snap.val() === currentUser.uid) {
+      const updates = {};
+      updates['rooms/' + saved.roomId] = null;
+      updates['publicRooms/' + saved.roomId] = null;
+      if (saved.code) updates['roomCodes/' + saved.code] = null;
+      await db.ref().update(updates);
+    }
+  } catch (e) {}
+  forgetHostedRoom();
+}
+
 export async function createRoom({ playerName, maxPlayers, isPublic, winMode }) {
   await signIn();
   saveName(playerName);
@@ -108,6 +139,7 @@ export async function createRoom({ playerName, maxPlayers, isPublic, winMode }) 
   currentRoomId = roomId;
   currentCode = code;
   hostFlag = true;
+  rememberHostedRoom(roomId, code); // pour nettoyer si fermeture brutale plus tard
   return { roomId, code };
 }
 
@@ -265,6 +297,7 @@ export async function leaveRoom() {
     }
   }
 
+  forgetHostedRoom(); // room quittée proprement : plus rien à nettoyer plus tard
   cleanupAll();
   currentRoomId = null;
   currentCode = null;

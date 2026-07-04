@@ -1117,6 +1117,7 @@
 
   // js/online.js
   var NAME_KEY = "petits-chevaux-player-name";
+  var HOSTED_KEY = "petits-chevaux-hosted-room";
   var COLOR_ORDER2 = ["red", "green", "yellow", "blue"];
   var db = null;
   var auth = null;
@@ -1176,6 +1177,39 @@
     for (let i = 0; i < 6; i++) code += Math.floor(Math.random() * 10);
     return code;
   }
+  function rememberHostedRoom(roomId, code) {
+    try {
+      localStorage.setItem(HOSTED_KEY, JSON.stringify({ roomId, code }));
+    } catch {
+    }
+  }
+  function forgetHostedRoom() {
+    try {
+      localStorage.removeItem(HOSTED_KEY);
+    } catch {
+    }
+  }
+  async function sweepOwnOrphanRoom() {
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(HOSTED_KEY) || "null");
+    } catch {
+    }
+    if (!saved || !saved.roomId) return;
+    try {
+      await signIn();
+      const snap = await db.ref("rooms/" + saved.roomId + "/config/hostId").once("value");
+      if (snap.val() === currentUser.uid) {
+        const updates = {};
+        updates["rooms/" + saved.roomId] = null;
+        updates["publicRooms/" + saved.roomId] = null;
+        if (saved.code) updates["roomCodes/" + saved.code] = null;
+        await db.ref().update(updates);
+      }
+    } catch (e) {
+    }
+    forgetHostedRoom();
+  }
   async function createRoom({ playerName, maxPlayers, isPublic, winMode }) {
     await signIn();
     saveName(playerName);
@@ -1220,6 +1254,7 @@
     currentRoomId = roomId;
     currentCode = code;
     hostFlag = true;
+    rememberHostedRoom(roomId, code);
     return { roomId, code };
   }
   function disarmRoomAutoDelete() {
@@ -1355,6 +1390,7 @@
         db.ref("publicRooms/" + currentRoomId + "/playerCount").set(playersSnap.numChildren());
       }
     }
+    forgetHostedRoom();
     cleanupAll();
     currentRoomId = null;
     currentCode = null;
@@ -1977,6 +2013,7 @@
         announce("Mode en ligne indisponible hors connexion.", true);
         return;
       }
+      sweepOwnOrphanRoom();
       $2("online-name").value = getSavedName();
       hideOnlineError("online-error");
       showScreen("online-menu");
