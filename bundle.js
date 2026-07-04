@@ -1122,6 +1122,7 @@
   var auth = null;
   var currentUser = null;
   var currentRoomId = null;
+  var currentCode = null;
   var hostFlag = false;
   var cleanupFns = [];
   function fb() {
@@ -1217,8 +1218,18 @@
     db.ref("publicRooms/" + roomId).onDisconnect().remove();
     if (code) db.ref("roomCodes/" + code).onDisconnect().remove();
     currentRoomId = roomId;
+    currentCode = code;
     hostFlag = true;
     return { roomId, code };
+  }
+  function disarmRoomAutoDelete() {
+    if (!db || !currentRoomId) return;
+    try {
+      db.ref("rooms/" + currentRoomId).onDisconnect().cancel();
+      db.ref("publicRooms/" + currentRoomId).onDisconnect().cancel();
+      if (currentCode) db.ref("roomCodes/" + currentCode).onDisconnect().cancel();
+    } catch (e) {
+    }
   }
   async function joinRoom(roomId, playerName) {
     await signIn();
@@ -1346,6 +1357,7 @@
     }
     cleanupAll();
     currentRoomId = null;
+    currentCode = null;
     hostFlag = false;
   }
   function cleanupAll() {
@@ -1692,6 +1704,7 @@
     if (state.phase !== "rolling") return;
     if (isOnline && state.currentColor !== myColor) return;
     unlockAudio();
+    requestMotionPermission();
     setDiceEnabled(false);
     play("dice-roll");
     vibrate(50);
@@ -1719,7 +1732,10 @@
           announce(`Trois 6 de suite ! Tour perdu.`, true);
           logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
         }
-        if (isOnline) lastOnlineAction = { type: "penalty", color: state.currentColor, events: ["penalty"] };
+        if (isOnline) {
+          syncOnlineState("dice", { dice: value, playerColor: state.currentColor, penalty: true });
+          lastOnlineAction = { type: "penalty", color: state.currentColor, events: ["penalty"] };
+        }
         setTimeout(() => endTurn(false), 2e3);
         return;
       }
@@ -1736,7 +1752,10 @@
         logEvent(`${colorName} : aucun mouvement`, state.currentColor);
         play("pass-turn");
         vibrate([30, 30, 30]);
-        if (isOnline) lastOnlineAction = { type: "pass", color: state.currentColor, events: [] };
+        if (isOnline) {
+          syncOnlineState("dice", { dice: value, playerColor: state.currentColor, noMove: true });
+          lastOnlineAction = { type: "pass", color: state.currentColor, events: [] };
+        }
         setTimeout(() => endTurn(false), 1200);
         return;
       }
@@ -1889,7 +1908,10 @@
           vibrate([80, 40, 80]);
         }
         const name = onlinePlayerName(action.playerColor || gs.currentColor);
-        announce(`${name} lance ${action.dice}.`);
+        let msg = `${name} lance ${action.dice}.`;
+        if (action.noMove) msg += " Aucun mouvement possible.";
+        else if (action.penalty) msg += " Trois 6 de suite, tour perdu.";
+        announce(msg);
         logEvent(`${COLOR_NAMES[action.playerColor || gs.currentColor]} lance ${action.dice}`, action.playerColor || gs.currentColor);
       }
       if (action.type === "turn-start" && action.prevType) {
@@ -2158,11 +2180,11 @@
     showScreen("game");
     play("exit-stable");
     await setRoomStatus("playing");
+    disarmRoomAutoDelete();
     beginTurn();
   }
   function initOnlineGameFromState(gs) {
     unlockAudio();
-    requestMotionPermission();
     isOnline = true;
     turnCount = 0;
     gameStartTime = Date.now();

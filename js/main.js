@@ -25,7 +25,7 @@ import {
   isFirebaseAvailable, createRoom, joinRoom, joinRoomByCode,
   listenPublicRooms, listenRoom, writeGameState, setRoomStatus,
   leaveRoom, cleanupAll, getUid, isHost, getCurrentRoomId,
-  getSavedName, saveName,
+  getSavedName, saveName, disarmRoomAutoDelete,
 } from './online.js';
 
 let state = null;
@@ -427,6 +427,7 @@ function onDiceClick() {
   if (isOnline && state.currentColor !== myColor) return;
 
   unlockAudio();
+  requestMotionPermission(); // 1er tap = geste valide → demande la permission iOS (couvre le joiner)
   setDiceEnabled(false);
   play('dice-roll');
   vibrate(50);
@@ -458,7 +459,10 @@ function onDiceClick() {
         announce(`Trois 6 de suite ! Tour perdu.`, true);
         logEvent(`${COLOR_NAMES[state.currentColor]} : trois 6, tour perdu`, state.currentColor);
       }
-      if (isOnline) lastOnlineAction = { type: 'penalty', color: state.currentColor, events: ['penalty'] };
+      if (isOnline) {
+        syncOnlineState('dice', { dice: value, playerColor: state.currentColor, penalty: true });
+        lastOnlineAction = { type: 'penalty', color: state.currentColor, events: ['penalty'] };
+      }
       setTimeout(() => endTurn(false), 2000);
       return;
     }
@@ -476,7 +480,10 @@ function onDiceClick() {
       logEvent(`${colorName} : aucun mouvement`, state.currentColor);
       play('pass-turn');
       vibrate([30, 30, 30]);
-      if (isOnline) lastOnlineAction = { type: 'pass', color: state.currentColor, events: [] };
+      if (isOnline) {
+        syncOnlineState('dice', { dice: value, playerColor: state.currentColor, noMove: true });
+        lastOnlineAction = { type: 'pass', color: state.currentColor, events: [] };
+      }
       setTimeout(() => endTurn(false), 1200);
       return;
     }
@@ -656,7 +663,10 @@ function onRemoteGameState(gs) {
       vibrate(50);
       if (action.dice === 6) { play('dice-six'); vibrate([80, 40, 80]); }
       const name = onlinePlayerName(action.playerColor || gs.currentColor);
-      announce(`${name} lance ${action.dice}.`);
+      let msg = `${name} lance ${action.dice}.`;
+      if (action.noMove) msg += ' Aucun mouvement possible.';
+      else if (action.penalty) msg += ' Trois 6 de suite, tour perdu.';
+      announce(msg);
       logEvent(`${COLOR_NAMES[action.playerColor || gs.currentColor]} lance ${action.dice}`, action.playerColor || gs.currentColor);
     }
 
@@ -957,12 +967,16 @@ async function onStartOnlineGame() {
 
   play('exit-stable'); // signal sonore de début de partie
   await setRoomStatus('playing');
+  disarmRoomAutoDelete(); // ne plus supprimer la room sur coupure réseau pendant la partie
   beginTurn();
 }
 
 function initOnlineGameFromState(gs) {
   unlockAudio();
-  requestMotionPermission();
+  // Pas de requestMotionPermission() ici : ce chemin est déclenché par un
+  // listener Firebase (pas un geste utilisateur), donc iOS bloquerait la demande
+  // ET marquerait « déjà demandé », empêchant la vraie demande au 1er tap du dé.
+  // La permission est demandée dans onDiceClick (geste garanti).
 
   isOnline = true;
   turnCount = 0;

@@ -7,6 +7,7 @@ let db = null;
 let auth = null;
 let currentUser = null;
 let currentRoomId = null;
+let currentCode = null;
 let hostFlag = false;
 let cleanupFns = [];
 
@@ -105,8 +106,22 @@ export async function createRoom({ playerName, maxPlayers, isPublic, winMode }) 
   if (code) db.ref('roomCodes/' + code).onDisconnect().remove();
 
   currentRoomId = roomId;
+  currentCode = code;
   hostFlag = true;
   return { roomId, code };
+}
+
+// Désarme la suppression automatique de la room (onDisconnect().remove()).
+// À appeler quand la partie démarre : sinon une coupure réseau passagère de
+// l'hôte (arrière-plan mobile, wifi↔4G) supprimerait toute la room en pleine
+// partie. L'auto-suppression n'est utile que dans le lobby (salon abandonné).
+export function disarmRoomAutoDelete() {
+  if (!db || !currentRoomId) return;
+  try {
+    db.ref('rooms/' + currentRoomId).onDisconnect().cancel();
+    db.ref('publicRooms/' + currentRoomId).onDisconnect().cancel();
+    if (currentCode) db.ref('roomCodes/' + currentCode).onDisconnect().cancel();
+  } catch (e) {}
 }
 
 export async function joinRoom(roomId, playerName) {
@@ -252,6 +267,7 @@ export async function leaveRoom() {
 
   cleanupAll();
   currentRoomId = null;
+  currentCode = null;
   hostFlag = false;
 }
 
