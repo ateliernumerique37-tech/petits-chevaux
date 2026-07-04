@@ -75,8 +75,15 @@ export async function sweepOwnOrphanRoom() {
   if (!saved || !saved.roomId) return;
   try {
     await signIn();
-    const snap = await db.ref('rooms/' + saved.roomId + '/config/hostId').once('value');
-    if (snap.val() === currentUser.uid) {
+    const roomSnap = await db.ref('rooms/' + saved.roomId).once('value');
+    const room = roomSnap.val();
+    if (room && room.config && room.config.hostId === currentUser.uid) {
+      // Ne PAS supprimer une partie encore habitée : si le statut est
+      // « playing » et qu'un adversaire y est toujours, on laisse la room
+      // vivre (l'hôte peut s'y reconnecter via joinRoom). On garde la clé
+      // pour balayer plus tard si elle devient réellement orpheline.
+      const others = Object.keys(room.players || {}).filter(uid => uid !== currentUser.uid);
+      if (room.status === 'playing' && others.length > 0) return;
       const updates = {};
       updates['rooms/' + saved.roomId] = null;
       updates['publicRooms/' + saved.roomId] = null;
@@ -150,9 +157,14 @@ export async function createRoom({ playerName, maxPlayers, isPublic, winMode }) 
 export function disarmRoomAutoDelete() {
   if (!db || !currentRoomId) return;
   try {
+    // ATTENTION : cancel() sur un chemin annule aussi les onDisconnect de TOUS
+    // ses enfants — y compris les marqueurs de présence du joueur. Il faut donc
+    // les re-armer juste après (sinon connected/lastSeen ne se mettent plus à
+    // jour en cas de coupure).
     db.ref('rooms/' + currentRoomId).onDisconnect().cancel();
     db.ref('publicRooms/' + currentRoomId).onDisconnect().cancel();
     if (currentCode) db.ref('roomCodes/' + currentCode).onDisconnect().cancel();
+    if (currentUser) setupPresence(currentRoomId); // re-armement de la présence
   } catch (e) {}
 }
 
@@ -169,16 +181,21 @@ export async function joinRoom(roomId, playerName) {
 
   const config = configSnap.val();
   if (!config) throw new Error('Plateau introuvable.');
-  if (statusSnap.val() !== 'waiting') throw new Error('La partie a déjà commencé.');
 
+  // RECONNEXION D'ABORD : si ce joueur fait déjà partie de la room, il peut
+  // toujours revenir — même en pleine partie. (Ce test doit précéder le test
+  // de statut, sinon la reconnexion est impossible dès que la partie a démarré.)
   const players = playersSnap.val() || {};
   if (players[currentUser.uid]) {
     await roomRef.child('players/' + currentUser.uid + '/connected').set(true);
     currentRoomId = roomId;
     hostFlag = config.hostId === currentUser.uid;
+    if (hostFlag && config.code) currentCode = config.code;
     setupPresence(roomId);
     return { roomId, color: players[currentUser.uid].color, config };
   }
+
+  if (statusSnap.val() !== 'waiting') throw new Error('La partie a déjà commencé.');
 
   const count = Object.keys(players).length;
   if (count >= config.maxPlayers) throw new Error('Le plateau est complet.');
@@ -195,7 +212,11 @@ export async function joinRoom(roomId, playerName) {
   });
 
   if (config.public) {
-    db.ref('publicRooms/' + roomId + '/playerCount').set(count + 1);
+    // Transaction : évite la désynchronisation du compteur si deux joueurs
+    // rejoignent/quittent en même temps (lecture-puis-écriture non atomique).
+    db.ref('publicRooms/' + roomId + '/playerCount')
+      .transaction(n => (n === null ? undefined : n + 1))
+      .catch(() => {});
   }
 
   setupPresence(roomId);
@@ -292,8 +313,9 @@ export async function leaveRoom() {
   } else {
     await roomRef.child('players/' + currentUser.uid).remove();
     if (config && config.public) {
-      const playersSnap = await roomRef.child('players').once('value');
-      db.ref('publicRooms/' + currentRoomId + '/playerCount').set(playersSnap.numChildren());
+      db.ref('publicRooms/' + currentRoomId + '/playerCount')
+        .transaction(n => (n === null ? undefined : Math.max(0, n - 1)))
+        .catch(() => {});
     }
   }
 

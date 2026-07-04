@@ -209,7 +209,7 @@
   function applyTripleSixPenalty(state2) {
     const { horses, currentColor } = state2;
     const active = horses.filter(
-      (h) => h.color === currentColor && h.relPos >= 0 && h.relPos < FINISHED_REL
+      (h) => h.color === currentColor && h.relPos >= 0 && h.relPos <= 51
     );
     if (active.length === 0) return null;
     const penalized = active.reduce((best, h) => h.relPos > best.relPos ? h : best);
@@ -220,7 +220,6 @@
     const { players, currentColor } = state2;
     const idx = players.indexOf(currentColor);
     state2.currentColor = players[(idx + 1) % players.length];
-    state2.phase = "pass-phone";
     state2.consecutiveSixes = 0;
   }
   function getTurnSummary(state2) {
@@ -851,20 +850,14 @@
     const pal = {
       red: "#c62828",
       green: "#2e7d32",
-      yellow: "#f57f17",
+      yellow: "#b53d00",
       blue: "#1565c0"
     };
     const banner = $("turn-banner");
     banner.textContent = `Tour de ${COLOR_NAMES[color]}`;
     banner.style.color = pal[color];
     const diceArea = $("dice-result");
-    if (diceValue !== null) {
-      diceArea.textContent = diceValue;
-      diceArea.setAttribute("aria-label", `R\xE9sultat du d\xE9 : ${diceValue}`);
-    } else {
-      diceArea.textContent = "";
-      diceArea.removeAttribute("aria-label");
-    }
+    diceArea.textContent = diceValue !== null ? diceValue : "";
   }
   function setDiceEnabled(enabled) {
     const btn = $("btn-dice");
@@ -877,6 +870,11 @@
   function animateDice(finalValue, callback) {
     const btn = $("btn-dice");
     const face = $("dice-face");
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      face.textContent = DICE_FACES[finalValue - 1];
+      callback();
+      return;
+    }
     btn.classList.add("rolling");
     let ticks = 0;
     const interval = setInterval(() => {
@@ -895,7 +893,7 @@
     $("winner-name").style.color = {
       red: "#c62828",
       green: "#2e7d32",
-      yellow: "#f57f17",
+      yellow: "#b53d00",
       blue: "#1565c0"
     }[color];
     const scoresEl = $("winner-scores");
@@ -991,6 +989,11 @@
     if (btn) btn.hidden = !visible;
   }
   var STATS_KEY = "petits-chevaux-stats";
+  function escText(s) {
+    const d = document.createElement("div");
+    d.textContent = String(s);
+    return d.innerHTML;
+  }
   function formatDuration(seconds) {
     if (!seconds || seconds <= 0) return "\u2014";
     const m = Math.floor(seconds / 60);
@@ -1031,7 +1034,7 @@
       const diff = { easy: "facile", normal: "normal", hard: "difficile" };
       const mode = s.aiMode ? `IA ${diff[s.aiDifficulty] || "normal"}` : `${s.playerCount} humains`;
       const dur = s.duration ? ` \u2014 ${formatDuration(s.duration)}` : "";
-      html += `<li>${date} \u2014 ${s.winnerLabel || s.winner} gagne (${mode})${dur}</li>`;
+      html += `<li>${date} \u2014 ${escText(s.winnerLabel || s.winner)} gagne (${mode})${dur}</li>`;
     }
     html += "</ul>";
     container.innerHTML = html;
@@ -1198,8 +1201,11 @@
     if (!saved || !saved.roomId) return;
     try {
       await signIn();
-      const snap = await db.ref("rooms/" + saved.roomId + "/config/hostId").once("value");
-      if (snap.val() === currentUser.uid) {
+      const roomSnap = await db.ref("rooms/" + saved.roomId).once("value");
+      const room = roomSnap.val();
+      if (room && room.config && room.config.hostId === currentUser.uid) {
+        const others = Object.keys(room.players || {}).filter((uid) => uid !== currentUser.uid);
+        if (room.status === "playing" && others.length > 0) return;
         const updates = {};
         updates["rooms/" + saved.roomId] = null;
         updates["publicRooms/" + saved.roomId] = null;
@@ -1263,6 +1269,7 @@
       db.ref("rooms/" + currentRoomId).onDisconnect().cancel();
       db.ref("publicRooms/" + currentRoomId).onDisconnect().cancel();
       if (currentCode) db.ref("roomCodes/" + currentCode).onDisconnect().cancel();
+      if (currentUser) setupPresence(currentRoomId);
     } catch (e) {
     }
   }
@@ -1277,15 +1284,16 @@
     ]);
     const config = configSnap.val();
     if (!config) throw new Error("Plateau introuvable.");
-    if (statusSnap.val() !== "waiting") throw new Error("La partie a d\xE9j\xE0 commenc\xE9.");
     const players = playersSnap.val() || {};
     if (players[currentUser.uid]) {
       await roomRef.child("players/" + currentUser.uid + "/connected").set(true);
       currentRoomId = roomId;
       hostFlag = config.hostId === currentUser.uid;
+      if (hostFlag && config.code) currentCode = config.code;
       setupPresence(roomId);
       return { roomId, color: players[currentUser.uid].color, config };
     }
+    if (statusSnap.val() !== "waiting") throw new Error("La partie a d\xE9j\xE0 commenc\xE9.");
     const count = Object.keys(players).length;
     if (count >= config.maxPlayers) throw new Error("Le plateau est complet.");
     const usedColors = new Set(Object.values(players).map((p) => p.color));
@@ -1298,7 +1306,8 @@
       lastSeen: fb().database.ServerValue.TIMESTAMP
     });
     if (config.public) {
-      db.ref("publicRooms/" + roomId + "/playerCount").set(count + 1);
+      db.ref("publicRooms/" + roomId + "/playerCount").transaction((n) => n === null ? void 0 : n + 1).catch(() => {
+      });
     }
     setupPresence(roomId);
     currentRoomId = roomId;
@@ -1386,8 +1395,8 @@
     } else {
       await roomRef.child("players/" + currentUser.uid).remove();
       if (config && config.public) {
-        const playersSnap = await roomRef.child("players").once("value");
-        db.ref("publicRooms/" + currentRoomId + "/playerCount").set(playersSnap.numChildren());
+        db.ref("publicRooms/" + currentRoomId + "/playerCount").transaction((n) => n === null ? void 0 : Math.max(0, n - 1)).catch(() => {
+        });
       }
     }
     forgetHostedRoom();
@@ -1416,6 +1425,11 @@
   var roomUnsub = null;
   var onlineName = "";
   var lastOnlineAction = null;
+  var departedColors = /* @__PURE__ */ new Set();
+  function onlineColorActive(color) {
+    if (color === myColor) return true;
+    return Object.values(onlinePlayersMap).some((p) => p.color === color && p.connected !== false);
+  }
   var AI_NAMES = ["Bernard", "C\xE9line", "Marie"];
   var SAVE_KEY = "petits-chevaux-save";
   var STATS_KEY2 = "petits-chevaux-stats";
@@ -1656,7 +1670,22 @@
     state.validMoveIds = [];
     updateTurnBanner(state.currentColor, state.phase, null);
     if (isOnline) {
-      const detail = lastOnlineAction ? { prevType: lastOnlineAction.type, prevColor: lastOnlineAction.color, prevEvents: lastOnlineAction.events } : {};
+      let guard = 0;
+      while (guard++ < 4 && !onlineColorActive(state.currentColor)) {
+        announce(`Tour de ${onlinePlayerName(state.currentColor)} pass\xE9 (joueur d\xE9connect\xE9).`);
+        logEvent(`${COLOR_NAMES[state.currentColor]} : tour pass\xE9 (d\xE9connect\xE9)`, state.currentColor);
+        advanceTurn(state);
+      }
+      const la = lastOnlineAction;
+      const detail = la ? {
+        prevType: la.type,
+        prevColor: la.color,
+        prevEvents: la.events || null,
+        prevCell: la.cell || null,
+        prevHorseId: la.horseId ?? null,
+        prevCaptured: la.captured || null,
+        prevReplay: !!la.replay
+      } : {};
       lastOnlineAction = null;
       syncOnlineState("turn-start", detail);
       if (state.currentColor !== myColor) {
@@ -1822,6 +1851,7 @@
     let hadCapture = false;
     let moverCell = "";
     const eventTypes = [];
+    const capturedList = [];
     for (const ev of events) {
       eventTypes.push(ev.type);
       if (ev.type === "exit-stable" || ev.type === "move") {
@@ -1845,6 +1875,7 @@
       }
       if (ev.type === "capture") {
         hadCapture = true;
+        capturedList.push({ color: ev.capturedColor, id: ev.capturedId });
         const captured = state.horses.find((h) => h.color === ev.capturedColor && h.id === ev.capturedId);
         moveHorse(captured);
         play("capture");
@@ -1886,10 +1917,18 @@
         return;
       }
     }
-    if (isOnline) {
-      lastOnlineAction = { type: "move", color: state.currentColor, events: eventTypes };
-    }
     const extraTurn = dice === 6 || hadCapture;
+    if (isOnline) {
+      lastOnlineAction = {
+        type: "move",
+        color: state.currentColor,
+        events: eventTypes,
+        cell: moverCell || null,
+        horseId,
+        captured: capturedList.length ? capturedList : null,
+        replay: extraTurn
+      };
+    }
     setTimeout(() => endTurn(extraTurn), 600);
   }
   function endTurn(extraTurn) {
@@ -1956,7 +1995,7 @@
             if (et === "capture") play("capture");
             else if (et === "home-stretch") play("home-stretch");
             else if (et === "exit-stable") play("exit-stable");
-            else if (et === "move" || et === "exit-stable") play("move");
+            else if (et === "move") play("move");
           }
         }
         if (action.prevType === "pass") {
@@ -1968,12 +2007,35 @@
           logEvent(`${COLOR_NAMES[action.prevColor]} : trois 6, tour perdu`, action.prevColor);
         }
         if (action.prevType === "move") {
-          logEvent(`${COLOR_NAMES[action.prevColor]} a jou\xE9`, action.prevColor);
+          const pname = onlinePlayerName(action.prevColor);
+          const horseNum = (action.prevHorseId ?? 0) + 1;
+          let txt = action.prevCell ? `${pname} : cheval ${horseNum} avance, ${action.prevCell}.` : `${pname} a jou\xE9.`;
+          let urgent = false;
+          if (action.prevCaptured) {
+            for (const cap of action.prevCaptured) {
+              if (cap.color === myColor) {
+                txt += ` Capture ! Votre cheval ${cap.id + 1} est renvoy\xE9 \xE0 l'\xE9curie.`;
+                urgent = true;
+              } else {
+                txt += ` Capture ! Cheval ${COLOR_NAMES[cap.color]} ${cap.id + 1} renvoy\xE9 \xE0 l'\xE9curie.`;
+              }
+              logEvent(`${COLOR_NAMES[action.prevColor]} capture ${COLOR_NAMES[cap.color]}`, action.prevColor, true);
+            }
+          }
+          if (action.prevReplay && gs.currentColor === action.prevColor) {
+            txt += ` ${pname} rejoue.`;
+          }
+          announce(txt, urgent);
+          logEvent(
+            `${COLOR_NAMES[action.prevColor]} : cheval ${horseNum}${action.prevCell ? " \u2192 " + action.prevCell : ""}`,
+            action.prevColor
+          );
         }
       }
       if (action.type === "win") {
         play("victory");
         vibrate([100, 50, 100, 50, 300]);
+        recordStats(action.winner);
         const nameMap = {};
         state.players.forEach((c) => {
           nameMap[c] = onlinePlayerName(c);
@@ -2050,6 +2112,12 @@
     $2("join-code").addEventListener("keydown", (e) => {
       if (e.key === "Enter") onJoinByCode();
     });
+    $2("online-name").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        $2("btn-create-room").click();
+      }
+    });
     $2("btn-lobby-leave").addEventListener("click", onLeaveLobby);
     $2("btn-lobby-start").addEventListener("click", onStartOnlineGame);
     ["online-max-players", "online-visibility", "online-win-mode"].forEach((id) => {
@@ -2067,13 +2135,15 @@
       }
       list.innerHTML = "";
       for (const room of rooms) {
+        const li = document.createElement("div");
+        li.setAttribute("role", "listitem");
         const item = document.createElement("button");
         item.type = "button";
         item.className = "public-room-item";
-        item.setAttribute("role", "listitem");
         item.innerHTML = `<span class="public-room-host">${esc(room.hostName)}</span><span class="public-room-info">${room.playerCount}/${room.maxPlayers}</span>`;
         item.addEventListener("click", () => onJoinPublicRoom(room.id));
-        list.appendChild(item);
+        li.appendChild(item);
+        list.appendChild(li);
       }
     });
   }
@@ -2127,6 +2197,36 @@
     }
   }
   var COLOR_PAL = { red: "#c62828", green: "#2e7d32", yellow: "#f57f17", blue: "#1565c0" };
+  function handleMidGameDepartures(players) {
+    if (!isOnline || !state || state.phase === "game-over") return;
+    const present = new Set(Object.values(players).map((p) => p.color));
+    if (!present.has(myColor)) return;
+    const departed = state.players.filter(
+      (c) => c !== myColor && !present.has(c) && !departedColors.has(c)
+    );
+    if (!departed.length) return;
+    for (const c of departed) {
+      departedColors.add(c);
+      announce(`${onlinePlayerName(c)} a quitt\xE9 la partie.`, true);
+      logEvent(`${COLOR_NAMES[c]} a quitt\xE9 la partie`, c);
+    }
+    state.players = state.players.filter((c) => !departedColors.has(c));
+    if (state.players.length === 1 && state.players[0] === myColor) {
+      state.phase = "game-over";
+      state.winner = myColor;
+      recordStats(myColor);
+      setRoomStatus("finished");
+      const nameMap = { [myColor]: onlinePlayerName(myColor) };
+      play("victory");
+      vibrate([100, 50, 100, 50, 300]);
+      showWinner(myColor, {}, nameMap);
+      return;
+    }
+    if (!state.players.includes(state.currentColor) && state.players[0] === myColor) {
+      advanceTurn(state);
+      beginTurn();
+    }
+  }
   function enterLobby(roomId, code, color) {
     myColor = color;
     if (code) {
@@ -2140,6 +2240,7 @@
     showScreen("online-lobby");
     roomUnsub = listenRoom(roomId, {
       onPlayers: (players) => {
+        handleMidGameDepartures(players);
         onlinePlayersMap = players;
         renderLobbyPlayers(players);
         const count = Object.keys(players).length;
@@ -2152,8 +2253,10 @@
       },
       onStatus: (status) => {
         if (status === null) {
-          announce("Le plateau a \xE9t\xE9 supprim\xE9.", true);
+          if (state && state.phase === "game-over") return;
+          announce(state ? "Le plateau a \xE9t\xE9 ferm\xE9 par l'h\xF4te. Retour \xE0 l'accueil." : "Le plateau a \xE9t\xE9 supprim\xE9.", true);
           resetOnline();
+          showResumeButton(!!loadSave());
           showScreen("setup");
         }
       },
@@ -2207,6 +2310,7 @@
     aiDifficulty = "normal";
     onlineSeq = -1;
     lastOnlineAction = null;
+    departedColors.clear();
     const winMode = $2("online-win-mode")?.value || "all";
     state = createGame(playerCount, winMode);
     state.players.forEach((color) => {
@@ -2230,6 +2334,7 @@
     aiDifficulty = "normal";
     onlineSeq = gs.seq || 0;
     lastOnlineAction = null;
+    departedColors.clear();
     state = {
       players: gs.players,
       horses: gs.horses.map((h) => ({ color: h.color, id: h.id, relPos: h.relPos })),

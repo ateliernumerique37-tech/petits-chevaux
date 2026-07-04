@@ -209,13 +209,15 @@ export function applyMove(state, horseId, dice) {
   return events;
 }
 
-// Sends the most advanced active horse back to the stable (triple-six penalty)
+// Sends the most advanced horse ON THE MAIN TRACK back to the stable (triple-six penalty).
+// Les chevaux du couloir d'arrivée sont protégés (règle usuelle) : si aucun cheval
+// n'est sur le circuit, le tour est simplement perdu sans renvoi.
 export function applyTripleSixPenalty(state) {
   const { horses, currentColor } = state;
   const active = horses.filter(h =>
     h.color === currentColor &&
     h.relPos >= 0 &&
-    h.relPos < FINISHED_REL
+    h.relPos <= 51
   );
   if (active.length === 0) return null;
   const penalized = active.reduce((best, h) => h.relPos > best.relPos ? h : best);
@@ -225,9 +227,10 @@ export function applyTripleSixPenalty(state) {
 
 export function advanceTurn(state) {
   const { players, currentColor } = state;
+  // indexOf renvoie -1 si la couleur a été retirée de la rotation (départ en ligne)
+  // → (−1+1) % len = 0 → on repart proprement sur le premier joueur restant.
   const idx = players.indexOf(currentColor);
   state.currentColor = players[(idx + 1) % players.length];
-  state.phase = 'pass-phone';
   state.consecutiveSixes = 0;
 }
 

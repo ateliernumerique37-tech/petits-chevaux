@@ -45,6 +45,15 @@ let onlinePlayersMap = {};
 let roomUnsub = null;
 let onlineName = '';
 let lastOnlineAction = null;
+const departedColors = new Set(); // couleurs ayant quitté la partie en cours
+
+// Une couleur est « active » si c'est la mienne, ou si un joueur non déconnecté
+// la contrôle. connected === false n'est posé par Firebase qu'après ~60 s de
+// coupure réelle : pas de faux positif sur un simple passage wifi↔4G.
+function onlineColorActive(color) {
+  if (color === myColor) return true;
+  return Object.values(onlinePlayersMap).some(p => p.color === color && p.connected !== false);
+}
 
 const AI_NAMES = ['Bernard', 'Céline', 'Marie'];
 const SAVE_KEY = 'petits-chevaux-save';
@@ -323,9 +332,27 @@ function beginTurn() {
 
   // ── Online: sync turn start ──
   if (isOnline) {
-    const detail = lastOnlineAction
-      ? { prevType: lastOnlineAction.type, prevColor: lastOnlineAction.color, prevEvents: lastOnlineAction.events }
-      : {};
+    // Filet anti-blocage : si la couleur courante n'est plus contrôlée
+    // (joueur parti ou déconnecté depuis ~60 s), passer son tour. Seul le
+    // client qui vient de jouer exécute beginTurn → écrivain unique, pas de
+    // conflit d'écriture.
+    let guard = 0;
+    while (guard++ < 4 && !onlineColorActive(state.currentColor)) {
+      announce(`Tour de ${onlinePlayerName(state.currentColor)} passé (joueur déconnecté).`);
+      logEvent(`${COLOR_NAMES[state.currentColor]} : tour passé (déconnecté)`, state.currentColor);
+      advanceTurn(state);
+    }
+
+    const la = lastOnlineAction;
+    const detail = la ? {
+      prevType: la.type,
+      prevColor: la.color,
+      prevEvents: la.events || null,
+      prevCell: la.cell || null,
+      prevHorseId: la.horseId ?? null,
+      prevCaptured: la.captured || null,
+      prevReplay: !!la.replay,
+    } : {};
     lastOnlineAction = null;
     syncOnlineState('turn-start', detail);
 
@@ -524,6 +551,7 @@ function onHorseSelected(horseId) {
   let hadCapture = false;
   let moverCell = '';
   const eventTypes = [];
+  const capturedList = []; // pour l'annonce détaillée côté distant
 
   for (const ev of events) {
     eventTypes.push(ev.type);
@@ -548,6 +576,7 @@ function onHorseSelected(horseId) {
     }
     if (ev.type === 'capture') {
       hadCapture = true;
+      capturedList.push({ color: ev.capturedColor, id: ev.capturedId });
       const captured = state.horses.find(h => h.color === ev.capturedColor && h.id === ev.capturedId);
       moveHorse(captured);
       play('capture');
@@ -591,11 +620,20 @@ function onHorseSelected(horseId) {
     }
   }
 
+  const extraTurn = dice === 6 || hadCapture;
+
   if (isOnline) {
-    lastOnlineAction = { type: 'move', color: state.currentColor, events: eventTypes };
+    lastOnlineAction = {
+      type: 'move',
+      color: state.currentColor,
+      events: eventTypes,
+      cell: moverCell || null,
+      horseId,
+      captured: capturedList.length ? capturedList : null,
+      replay: extraTurn,
+    };
   }
 
-  const extraTurn = dice === 6 || hadCapture;
   setTimeout(() => endTurn(extraTurn), 600);
 }
 
@@ -676,7 +714,7 @@ function onRemoteGameState(gs) {
           if (et === 'capture') play('capture');
           else if (et === 'home-stretch') play('home-stretch');
           else if (et === 'exit-stable') play('exit-stable');
-          else if (et === 'move' || et === 'exit-stable') play('move');
+          else if (et === 'move') play('move');
         }
       }
       if (action.prevType === 'pass') {
@@ -688,13 +726,41 @@ function onRemoteGameState(gs) {
         logEvent(`${COLOR_NAMES[action.prevColor]} : trois 6, tour perdu`, action.prevColor);
       }
       if (action.prevType === 'move') {
-        logEvent(`${COLOR_NAMES[action.prevColor]} a joué`, action.prevColor);
+        // Annonce vocale complète du coup adverse : déplacement, capture(s),
+        // tour supplémentaire. Indispensable pour un joueur malvoyant qui ne
+        // voit pas le plateau se re-rendre.
+        const pname = onlinePlayerName(action.prevColor);
+        const horseNum = (action.prevHorseId ?? 0) + 1;
+        let txt = action.prevCell
+          ? `${pname} : cheval ${horseNum} avance, ${action.prevCell}.`
+          : `${pname} a joué.`;
+        let urgent = false;
+        if (action.prevCaptured) {
+          for (const cap of action.prevCaptured) {
+            if (cap.color === myColor) {
+              txt += ` Capture ! Votre cheval ${cap.id + 1} est renvoyé à l'écurie.`;
+              urgent = true;
+            } else {
+              txt += ` Capture ! Cheval ${COLOR_NAMES[cap.color]} ${cap.id + 1} renvoyé à l'écurie.`;
+            }
+            logEvent(`${COLOR_NAMES[action.prevColor]} capture ${COLOR_NAMES[cap.color]}`, action.prevColor, true);
+          }
+        }
+        if (action.prevReplay && gs.currentColor === action.prevColor) {
+          txt += ` ${pname} rejoue.`;
+        }
+        announce(txt, urgent);
+        logEvent(
+          `${COLOR_NAMES[action.prevColor]} : cheval ${horseNum}${action.prevCell ? ' → ' + action.prevCell : ''}`,
+          action.prevColor
+        );
       }
     }
 
     if (action.type === 'win') {
       play('victory');
       vibrate([100, 50, 100, 50, 300]);
+      recordStats(action.winner); // le perdant enregistre aussi la partie dans ses stats
       const nameMap = {};
       state.players.forEach(c => { nameMap[c] = onlinePlayerName(c); });
       showWinner(action.winner, {}, nameMap);
@@ -772,6 +838,10 @@ function initOnlineScreens() {
   $('btn-join-back').addEventListener('click', () => { stopPublicRoomsListener(); showScreen('online-menu'); });
   $('btn-join-code').addEventListener('click', onJoinByCode);
   $('join-code').addEventListener('keydown', e => { if (e.key === 'Enter') onJoinByCode(); });
+  // Entrée dans le champ pseudo = action principale (créer un plateau)
+  $('online-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); $('btn-create-room').click(); }
+  });
   $('btn-lobby-leave').addEventListener('click', onLeaveLobby);
   $('btn-lobby-start').addEventListener('click', onStartOnlineGame);
 
@@ -792,15 +862,19 @@ function startPublicRoomsListener() {
     }
     list.innerHTML = '';
     for (const room of rooms) {
+      // role="listitem" sur un wrapper, PAS sur le bouton : posé sur le bouton,
+      // il écrase sa sémantique de bouton pour le lecteur d'écran.
+      const li = document.createElement('div');
+      li.setAttribute('role', 'listitem');
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'public-room-item';
-      item.setAttribute('role', 'listitem');
       item.innerHTML =
         `<span class="public-room-host">${esc(room.hostName)}</span>` +
         `<span class="public-room-info">${room.playerCount}/${room.maxPlayers}</span>`;
       item.addEventListener('click', () => onJoinPublicRoom(room.id));
-      list.appendChild(item);
+      li.appendChild(item);
+      list.appendChild(li);
     }
   });
 }
@@ -857,6 +931,48 @@ async function onJoinPublicRoom(roomId) {
 
 const COLOR_PAL = { red: '#c62828', green: '#2e7d32', yellow: '#f57f17', blue: '#1565c0' };
 
+// Départ d'un joueur en pleine partie : annonce, retrait de la rotation,
+// victoire par abandon si je reste seul, relance du tour si c'était au partant
+// de jouer. Sans ceci, la partie restait bloquée à jamais au tour du partant.
+function handleMidGameDepartures(players) {
+  if (!isOnline || !state || state.phase === 'game-over') return;
+  const present = new Set(Object.values(players).map(p => p.color));
+  // Ma propre couleur absente = room en cours de suppression → géré par onStatus
+  if (!present.has(myColor)) return;
+
+  const departed = state.players.filter(c =>
+    c !== myColor && !present.has(c) && !departedColors.has(c)
+  );
+  if (!departed.length) return;
+
+  for (const c of departed) {
+    departedColors.add(c);
+    announce(`${onlinePlayerName(c)} a quitté la partie.`, true);
+    logEvent(`${COLOR_NAMES[c]} a quitté la partie`, c);
+  }
+  state.players = state.players.filter(c => !departedColors.has(c));
+
+  // Dernier joueur restant → victoire par abandon
+  if (state.players.length === 1 && state.players[0] === myColor) {
+    state.phase = 'game-over';
+    state.winner = myColor;
+    recordStats(myColor);
+    setRoomStatus('finished');
+    const nameMap = { [myColor]: onlinePlayerName(myColor) };
+    play('victory');
+    vibrate([100, 50, 100, 50, 300]);
+    showWinner(myColor, {}, nameMap);
+    return;
+  }
+
+  // C'était le tour du partant : l'arbitre (première couleur restante) relance
+  // la rotation — un seul client écrit, pas de conflit.
+  if (!state.players.includes(state.currentColor) && state.players[0] === myColor) {
+    advanceTurn(state);
+    beginTurn();
+  }
+}
+
 function enterLobby(roomId, code, color) {
   myColor = color;
 
@@ -874,6 +990,9 @@ function enterLobby(roomId, code, color) {
 
   roomUnsub = listenRoom(roomId, {
     onPlayers: players => {
+      // Départs en cours de partie : traiter AVANT d'écraser la map (les
+      // pseudos des partants sont encore résolvables pour l'annonce).
+      handleMidGameDepartures(players);
       onlinePlayersMap = players;
       renderLobbyPlayers(players);
       const count = Object.keys(players).length;
@@ -888,8 +1007,14 @@ function enterLobby(roomId, code, color) {
     },
     onStatus: status => {
       if (status === null) {
-        announce('Le plateau a été supprimé.', true);
+        // Partie déjà terminée : l'hôte a fermé la room depuis son écran de
+        // victoire — ne PAS arracher l'écran de victoire du perdant.
+        if (state && state.phase === 'game-over') return;
+        announce(state
+          ? 'Le plateau a été fermé par l\'hôte. Retour à l\'accueil.'
+          : 'Le plateau a été supprimé.', true);
         resetOnline();
+        showResumeButton(!!loadSave());
         showScreen('setup');
       }
     },
@@ -953,6 +1078,7 @@ async function onStartOnlineGame() {
   aiDifficulty = 'normal';
   onlineSeq = -1;
   lastOnlineAction = null;
+  departedColors.clear();
 
   // Read win mode from room config — host stored it during create
   const winMode = $('online-win-mode')?.value || 'all';
@@ -987,6 +1113,7 @@ function initOnlineGameFromState(gs) {
   aiDifficulty = 'normal';
   onlineSeq = gs.seq || 0;
   lastOnlineAction = null;
+  departedColors.clear();
 
   state = {
     players: gs.players,

@@ -57,22 +57,20 @@ export function initSetupScreen(onStart) {
 // ─── Game screen ──────────────────────────────────────────────────────────────
 
 export function updateTurnBanner(color, phase, diceValue) {
+  // Jaune : #b53d00 (et non #f57f17) — le orange clair ne tient pas le
+  // contraste WCAG AA (4,5:1) en texte sur fond clair.
   const pal = {
     red:    '#c62828', green:  '#2e7d32',
-    yellow: '#f57f17', blue:   '#1565c0',
+    yellow: '#b53d00', blue:   '#1565c0',
   };
   const banner = $('turn-banner');
   banner.textContent = `Tour de ${COLOR_NAMES[color]}`;
   banner.style.color = pal[color];
 
+  // Zone visuelle uniquement (aria-hidden dans le HTML) : le résultat du dé
+  // est déjà annoncé par les régions ARIA live.
   const diceArea = $('dice-result');
-  if (diceValue !== null) {
-    diceArea.textContent = diceValue;
-    diceArea.setAttribute('aria-label', `Résultat du dé : ${diceValue}`);
-  } else {
-    diceArea.textContent = '';
-    diceArea.removeAttribute('aria-label');
-  }
+  diceArea.textContent = diceValue !== null ? diceValue : '';
 }
 
 export function setDiceEnabled(enabled) {
@@ -88,8 +86,16 @@ export function initDiceButton(onClick) {
 export function animateDice(finalValue, callback) {
   const btn = $('btn-dice');
   const face = $('dice-face');
-  btn.classList.add('rolling');
 
+  // prefers-reduced-motion : pas d'animation JS non plus (la media query CSS
+  // ne couvre pas ce setInterval) — affichage direct du résultat.
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    face.textContent = DICE_FACES[finalValue - 1];
+    callback();
+    return;
+  }
+
+  btn.classList.add('rolling');
   let ticks = 0;
   const interval = setInterval(() => {
     face.textContent = DICE_FACES[Math.floor(Math.random() * 6)];
@@ -106,7 +112,7 @@ export function showWinner(color, scores, nameMap) {
   const displayName = (nameMap && nameMap[color]) || COLOR_NAMES[color];
   $('winner-name').textContent = displayName;
   $('winner-name').style.color = {
-    red: '#c62828', green: '#2e7d32', yellow: '#f57f17', blue: '#1565c0',
+    red: '#c62828', green: '#2e7d32', yellow: '#b53d00', blue: '#1565c0',
   }[color];
 
   const scoresEl = $('winner-scores');
@@ -224,6 +230,13 @@ export function showResumeButton(visible) {
 
 const STATS_KEY = 'petits-chevaux-stats';
 
+// Échappe le texte injecté via innerHTML (winnerLabel peut contenir un pseudo)
+function escText(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
 function formatDuration(seconds) {
   if (!seconds || seconds <= 0) return '—';
   const m = Math.floor(seconds / 60);
@@ -267,7 +280,7 @@ export function renderStats() {
     const diff = { easy: 'facile', normal: 'normal', hard: 'difficile' };
     const mode = s.aiMode ? `IA ${diff[s.aiDifficulty] || 'normal'}` : `${s.playerCount} humains`;
     const dur = s.duration ? ` — ${formatDuration(s.duration)}` : '';
-    html += `<li>${date} — ${s.winnerLabel || s.winner} gagne (${mode})${dur}</li>`;
+    html += `<li>${date} — ${escText(s.winnerLabel || s.winner)} gagne (${mode})${dur}</li>`;
   }
   html += '</ul>';
 
