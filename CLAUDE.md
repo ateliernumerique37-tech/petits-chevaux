@@ -552,12 +552,27 @@ script** — sans filet, ils ne verraient qu'une page vide.
   déjà bien indexable) — meta description, canonical et OG ajoutés en plus.
 - **`robots.txt`** : `Allow: /` explicite pour tous les user-agents, y compris les robots
   IA — intentionnel, pas d'oubli. Référence le sitemap.
-- **`sitemap.xml`** : liste `index.html` et `regles.html`.
-- **`og-image.svg`** : image de partage (1200×630, thème bois/or du plateau). ⚠️ Limitation
-  connue : certaines plateformes (Facebook, X/Twitter) préfèrent un raster PNG/JPG à un SVG
-  pour les aperçus de lien — le SVG fonctionne pour Discord/Telegram/LinkedIn et pour les
-  robots IA qui lisent la balise `og:image` comme simple métadonnée texte, mais un PNG
-  garantirait une compatibilité maximale si un outil de génération d'image devient disponible.
+- **`sitemap.xml`** : liste `index.html` et `regles.html`. Pas de `<lastmod>` (retiré après
+  audit) : une date figée non maintenue à chaque déploiement serait un signal de fraîcheur
+  trompeur pour Google — celui-ci se base alors sur le header HTTP `Last-Modified`, fiable
+  car déduit automatiquement par GitHub Pages du commit.
+- **`og-image.png`** (1200×630, thème bois/or du plateau) : image de partage utilisée par
+  toutes les balises `og:image`/`twitter:image`, sur `index.html` et `regles.html`. Générée
+  depuis `og-image.svg` (conservé dans le repo comme source, non référencé/précaché) via
+  `npx sharp-cli -i og-image.svg -o og-image.png resize 1200 630`. Un SVG seul n'est pas
+  lu par Facebook/X pour les aperçus de lien (raster requis) — d'où le PNG en principal.
+- **`404.html`** à la racine (`<meta name="robots" content="noindex, follow">`, servi
+  nativement par GitHub Pages) : utilise des **chemins absolus** (`/petits-chevaux/style.css`,
+  `/petits-chevaux/`) et non relatifs, car l'URL cassée peut être plus profonde que la racine
+  (ex. `/petits-chevaux/xyz/abc`) — un chemin relatif se résoudrait alors par rapport à cette
+  URL, pas à l'emplacement réel du fichier.
+- **Favicon HTML explicite** (`<link rel="icon">`, réutilise l'icône PWA en data-URI SVG) sur
+  `index.html`, `regles.html` et `404.html` — Google affiche les favicons dans les SERP mobiles.
+- **JSON-LD `schema.org/Article`** sur `regles.html` (en plus du `VideoGame` sur `index.html`).
+- **Audit SEO** (agent `searchfit-seo:seo-auditor`, juillet 2026) : score initial 78/100.
+  Points forts confirmés : `<noscript>`, JSON-LD `VideoGame`, `robots.txt` explicite pour
+  les robots IA, accessibilité. Points corrigés depuis : image OG en PNG, `<lastmod>` retiré,
+  `regles.html` aligné (title, Twitter Card, JSON-LD), favicon, page 404.
 
 ### Limite structurelle assumée
 

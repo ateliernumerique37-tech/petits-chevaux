@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1565c0" />
+  <meta name="robots" content="noindex, follow" />
+  <title>Page introuvable — Petits Chevaux</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='32' fill='%231565c0'/><text x='96' y='130' font-size='100' text-anchor='middle'>🐴</text></svg>" />
+  <!-- Chemins absolus (pas relatifs) : l'URL cassée peut être plus profonde que
+       la racine du site (ex. /petits-chevaux/xyz/abc), et un chemin relatif se
+       résoudrait alors par rapport à cette URL, pas à l'emplacement réel du fichier. -->
+  <link rel="stylesheet" href="/petits-chevaux/style.css" />
+  <style>
+    .notfound-page {
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      text-align: center;
+      padding: 2rem;
+      background: var(--bg);
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <main class="notfound-page">
+    <h1>🐴 Page introuvable</h1>
+    <p>Cette page n'existe pas ou a été déplacée.</p>
+    <p><a href="/petits-chevaux/">Retour au jeu de Petits Chevaux</a></p>
+  </main>
+</body>
+</html>

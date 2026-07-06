@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Pas de <lastmod> : figé et non maintenu à jour à chaque déploiement, ce serait un
+     signal de fraîcheur trompeur pour Google. Il se base sur le header HTTP
+     Last-Modified, fiable car déduit automatiquement par GitHub Pages du commit. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://ateliernumerique37-tech.github.io/petits-chevaux/</loc>
-    <lastmod>2026-07-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ateliernumerique37-tech.github.io/petits-chevaux/regles.html</loc>
-    <lastmod>2026-07-06</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
