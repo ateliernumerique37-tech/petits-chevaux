@@ -4,17 +4,81 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#1565c0" />
-  <meta name="description" content="Jeu de Petits Chevaux – jouez à plusieurs sur un seul téléphone" />
+
+  <title>Petits Chevaux — Jeu de Ludo gratuit et accessible en ligne</title>
+  <meta name="description" content="Jouez aux Petits Chevaux gratuitement : en solo contre l'IA, en local à plusieurs sur un même appareil, ou en ligne en multijoueur. Jeu de plateau 100% accessible, conçu pour les lecteurs d'écran." />
+  <meta name="keywords" content="petits chevaux, ludo, jeu de plateau, jeu accessible, malvoyant, lecteur d'écran, multijoueur en ligne, jeu gratuit, PWA" />
+  <meta name="robots" content="index, follow" />
+  <meta name="author" content="Atelier Numérique 37" />
+  <link rel="canonical" href="https://ateliernumerique37-tech.github.io/petits-chevaux/" />
+
+  <!-- Open Graph / réseaux sociaux et robots IA qui lisent les métadonnées de partage -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Petits Chevaux — Jeu de Ludo gratuit et accessible en ligne" />
+  <meta property="og:description" content="Jouez aux Petits Chevaux gratuitement : solo contre l'IA, local à plusieurs, ou multijoueur en ligne. Jeu de plateau 100% accessible aux lecteurs d'écran." />
+  <meta property="og:url" content="https://ateliernumerique37-tech.github.io/petits-chevaux/" />
+  <meta property="og:image" content="https://ateliernumerique37-tech.github.io/petits-chevaux/og-image.svg" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:site_name" content="Petits Chevaux" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Petits Chevaux — Jeu de Ludo gratuit et accessible en ligne" />
+  <meta name="twitter:description" content="Solo contre l'IA, local à plusieurs, ou multijoueur en ligne. 100% accessible aux lecteurs d'écran." />
+  <meta name="twitter:image" content="https://ateliernumerique37-tech.github.io/petits-chevaux/og-image.svg" />
+
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Petits Chevaux" />
 
-  <title>Petits Chevaux</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Données structurées schema.org : la source la plus fiable pour qu'un moteur IA
+       (ChatGPT, Perplexity, Google AI Overviews...) comprenne le site sans avoir à
+       exécuter le JavaScript de l'application. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "VideoGame",
+    "name": "Petits Chevaux",
+    "alternateName": "Ludo accessible en ligne",
+    "description": "Jeu de plateau Petits Chevaux (Ludo) jouable en solo contre une IA, en local à plusieurs sur un même appareil, ou en ligne en multijoueur en temps réel. Conçu en priorité pour être jouable par des utilisateurs malvoyants au lecteur d'écran.",
+    "url": "https://ateliernumerique37-tech.github.io/petits-chevaux/",
+    "image": "https://ateliernumerique37-tech.github.io/petits-chevaux/og-image.svg",
+    "applicationCategory": "GameApplication",
+    "genre": "Board Game",
+    "gamePlatform": "Web Browser",
+    "operatingSystem": "Tout appareil avec navigateur web",
+    "inLanguage": "fr",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+    "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 4 },
+    "accessibilityFeature": ["ARIA", "highContrastDisplay", "readingOrder", "structuralNavigation"],
+    "accessibilityHazard": "none",
+    "accessibilityControl": ["fullKeyboardControl", "fullMouseControl", "fullTouchControl"],
+    "publisher": { "@type": "Organization", "name": "Atelier Numérique 37" }
+  }
+  </script>
 </head>
 <body>
+
+  <!-- Filet pour les robots (notamment certains robots IA) qui ne peuvent pas ou ne
+       souhaitent pas exécuter le JavaScript de l'application : sans JS, tous les
+       écrans du jeu restent cachés (hidden) et la page semble vide. Ce bloc donne
+       un contenu textuel réel et un lien vers les règles (page statique classique). -->
+  <noscript>
+    <main style="max-width:640px;margin:2rem auto;padding:1.5rem;font-family:sans-serif;line-height:1.6;">
+      <h1>🐴 Petits Chevaux — Jeu de Ludo gratuit et accessible en ligne</h1>
+      <p>
+        Jeu de plateau Petits Chevaux (Ludo), jouable <strong>en solo contre une IA</strong>,
+        <strong>en local à plusieurs</strong> sur un même appareil (2 à 4 joueurs), ou
+        <strong>en ligne en multijoueur</strong> à distance. Conçu en priorité pour être
+        jouable au clavier et au lecteur d'écran par des personnes malvoyantes.
+      </p>
+      <p>Ce jeu nécessite JavaScript pour fonctionner. Merci de l'activer dans votre navigateur.</p>
+      <p><a href="regles.html">Consulter les règles du jeu</a></p>
+    </main>
+  </noscript>
 
   <!-- ── ARIA live regions (visually hidden) ── -->
   <!-- Two polite regions alternated to force re-read of identical messages -->

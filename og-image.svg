@@ -1,0 +1,28 @@
+<svg viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fdf8ec"/>
+      <stop offset="100%" stop-color="#f3ead2"/>
+    </linearGradient>
+    <radialGradient id="gold" cx="40%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#fff3b0"/>
+      <stop offset="60%" stop-color="#ffd54f"/>
+      <stop offset="100%" stop-color="#f9a825"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="10" y="10" width="1180" height="610" rx="24" fill="none" stroke="#263238" stroke-width="10"/>
+
+  <circle cx="220" cy="200" r="70" fill="#c62828" stroke="#ffffff" stroke-width="6"/>
+  <rect x="900" y="130" width="140" height="140" rx="20" fill="#2e7d32" stroke="#ffffff" stroke-width="6"/>
+  <polygon points="220,430 290,540 150,540" fill="#ef6c00" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+  <polygon points="985,470 1055,540 985,610 915,540" fill="#1565c0" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
+
+  <circle cx="600" cy="315" r="90" fill="url(#gold)" stroke="#f57f17" stroke-width="4"/>
+  <text x="600" y="335" text-anchor="middle" font-family="sans-serif" font-size="70" font-weight="800" fill="#ffffff" stroke="#8e5a00" stroke-width="1.5">★</text>
+
+  <text x="600" y="245" text-anchor="middle" font-family="sans-serif" font-size="64" font-weight="800" fill="#263238">🐴 Petits Chevaux</text>
+  <text x="600" y="460" text-anchor="middle" font-family="sans-serif" font-size="30" font-weight="600" fill="#455a64">Solo · Local à plusieurs · Multijoueur en ligne</text>
+  <text x="600" y="505" text-anchor="middle" font-family="sans-serif" font-size="26" fill="#607d8b">Gratuit &amp; accessible aux lecteurs d'écran</text>
+</svg>

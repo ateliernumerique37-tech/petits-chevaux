@@ -509,14 +509,61 @@ roomCodes/$code :
 
 ### Service Worker
 
-Stratégie **cache-first**. Version actuelle : `petits-chevaux-v17`.
-Incrémenter `CACHE` à chaque déploiement modifiant des fichiers statiques.
+Stratégie **network-first** pour le cœur de l'app depuis v18 (voir section Build ci-dessus
+pour le détail). Version actuelle : `petits-chevaux-v24`.
+Incrémenter `CACHE` à chaque déploiement modifiant des fichiers statiques — reste une bonne
+pratique même si non critique pour la fraîcheur avec le network-first.
 
 ### GitHub Pages
 
 - Branche : `master`
 - Déclencheur : push → deploy automatique en ~1 min
 - Surveiller avec : `gh run list --repo ateliernumerique37-tech/petits-chevaux`
+- Des échecs occasionnels de l'étape "Deploy to GitHub Pages" (`Deployment failed, try again
+  later`) sont une instabilité passagère de l'infra GitHub, pas un problème du projet : le
+  déploiement suivant republie l'intégralité de la branche, donc aucun contenu n'est perdu.
+- `.nojekyll` (fichier vide à la racine) désactive le traitement Jekyll par défaut de GitHub
+  Pages — nécessaire pour un site statique fait main (Jekyll ignorerait sinon tout fichier/
+  dossier commençant par `_`, et impose un traitement inutile).
+
+---
+
+## SEO — référencement classique et moteurs IA (juillet 2026)
+
+### Constat de départ
+
+L'app est une SPA à écrans cachés par défaut (`hidden` sur `.screen`, révélés en JS via
+`showScreen()`). Google exécute le JavaScript avant indexation, mais **de nombreux robots
+IA (GPTBot, ClaudeBot, PerplexityBot...) font une lecture HTML brute sans exécuter de
+script** — sans filet, ils ne verraient qu'une page vide.
+
+### Ce qui a été mis en place
+
+- **`<noscript>`** dans `index.html` : contenu textuel réel (titre, description, lien vers
+  les règles) visible par tout robot qui ne rend pas le JS. C'est le filet le plus important.
+- **JSON-LD `schema.org/VideoGame`** dans `<head>` de `index.html` : nom, description,
+  gratuité (`isAccessibleForFree`), nombre de joueurs, et surtout les propriétés
+  d'accessibilité (`accessibilityFeature`, `accessibilityControl`, `accessibilityHazard`) —
+  la source la plus fiable pour qu'un moteur IA comprenne le site sans deviner.
+- **Meta tags enrichis** : title/description orientés recherche (mots-clés : petits chevaux,
+  ludo, jeu accessible, malvoyant, multijoueur en ligne), `<link rel="canonical">`,
+  Open Graph + Twitter Card (partage sur réseaux sociaux et aperçus de liens).
+- **`regles.html`** : déjà une page statique classique entièrement visible sans JS (donc
+  déjà bien indexable) — meta description, canonical et OG ajoutés en plus.
+- **`robots.txt`** : `Allow: /` explicite pour tous les user-agents, y compris les robots
+  IA — intentionnel, pas d'oubli. Référence le sitemap.
+- **`sitemap.xml`** : liste `index.html` et `regles.html`.
+- **`og-image.svg`** : image de partage (1200×630, thème bois/or du plateau). ⚠️ Limitation
+  connue : certaines plateformes (Facebook, X/Twitter) préfèrent un raster PNG/JPG à un SVG
+  pour les aperçus de lien — le SVG fonctionne pour Discord/Telegram/LinkedIn et pour les
+  robots IA qui lisent la balise `og:image` comme simple métadonnée texte, mais un PNG
+  garantirait une compatibilité maximale si un outil de génération d'image devient disponible.
+
+### Limite structurelle assumée
+
+GitHub Pages ne fait que du contenu statique — pas de rendu serveur (SSR) possible. Le
+`<noscript>` et les données structurées sont le compromis pragmatique face à cette
+contrainte, sans réécrire l'app en SPA server-rendered (hors de proportion pour ce projet).
 
 ---
 

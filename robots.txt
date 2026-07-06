@@ -1,0 +1,6 @@
+# Accès libre à tous les robots, y compris les robots d'indexation IA
+# (GPTBot, ChatGPT-User, ClaudeBot, Google-Extended, PerplexityBot, CCBot...)
+User-agent: *
+Allow: /
+
+Sitemap: https://ateliernumerique37-tech.github.io/petits-chevaux/sitemap.xml
