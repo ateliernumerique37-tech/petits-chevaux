@@ -605,9 +605,38 @@ Classes CSS notables :
 
 ### Responsive — `.screen-game` en CSS Grid
 
-- **Portrait** : colonne unique `header / log / board / footer`, max-width 600px centré
+- **Portrait** : colonne unique `header / log / board / footer`, max-width 760px centré
 - **Paysage** (`orientation: landscape and max-height: 600px`) : deux colonnes `board | sidebar`
 - **Taille plateau** : `min(100cqw, 100cqh)` — carré parfait dans le conteneur
+
+### Agrandissement du plateau (juillet 2026 — retour testeur voyant)
+
+Diagnostic : sur desktop/tablette, c'est quasi toujours la **hauteur** disponible qui limite
+le plateau (`header` + `event-log` + `game-footer` ≈ 320px fixes), pas la largeur — augmenter
+seulement `max-width` a un effet limité en pratique (mesuré : aucun gain sur la plupart des
+fenêtres desktop courantes, 1024×768 à 1366×800, toutes height-bound).
+
+Deux changements complémentaires, tous deux **sans impact accessibilité** (vérifié) :
+- `max-width` de la colonne portrait : 600px → **760px** (aide sur les fenêtres où la largeur
+  redevient le facteur limitant — fenêtres courtes, ou futurs ajustements de la hauteur des
+  contrôles).
+- `.event-log` : hauteur 74px → **58px**. Sans risque : cette section est `aria-hidden="true"`
+  dans `index.html` (pur repère visuel pour voyants, les non-voyants reçoivent déjà tout via
+  les régions ARIA live) — la réduire ne retire aucune information à personne.
+- `.game-footer` : padding et gaps légèrement resserrés (`0.75rem 1rem 0.6rem` → `0.55rem 1rem
+  0.45rem`, gap `0.5rem` → `0.4rem`). **Aucune cible tactile touchée** : `--min-touch: 44px`
+  préservé sur tous les boutons (vérifié après coup : dice 70.5px, Situation/Répéter/Quitter
+  toujours exactement 44px).
+
+Gain mesuré (Chrome headless, 1366×800) : plateau 473px → 498px (+5 % linéaire, ~+11 % de
+surface). Modeste mais garanti sûr. Mobile portrait et paysage téléphone : **non affectés**
+(paysage téléphone a son propre `.event-log { height: auto }` qui prend le dessus).
+
+> ⚠️ Un gain bien plus important existe (réutiliser la mise en page paysage `board | sidebar`
+> aussi sur desktop large, pas seulement les téléphones tenus à l'horizontale) mais **change la
+> disposition visuelle** (header/log/footer déplacés sur le côté) — non appliqué car l'utilisateur
+> a demandé explicitement de garder le même rendu. À proposer séparément si besoin d'un gain plus
+> visible.
 
 ---
 
