@@ -323,7 +323,12 @@ function resumeGame() {
 
 // ─── Turn start ───────────────────────────────────────────────────────────────
 
-function beginTurn() {
+// replayMode : null = nouveau tour normal ; 'announce' = même joueur rejoue
+// (6 sans capture) → une seule annonce courte « X rejoue » ; 'silent' = même
+// joueur rejoue mais l'annonce de capture vient DÉJÀ de dire « rejoue » → ne
+// rien répéter. Évite les doublons « X rejoue ! » + « Tour de X… » entendus
+// en rafale au lecteur d'écran après un 6.
+function beginTurn(replayMode = null) {
   turnCount++;
   state.phase = 'rolling';
   state.lastDice = null;
@@ -363,23 +368,37 @@ function beginTurn() {
     }
 
     setDiceEnabled(true);
-    const summary = getTurnSummary(state);
-    announce(`Votre tour ! ${summary}. Lancez le dé.`);
+    // Pas de « Lancez le dé » dans le texte : le focus arrive sur le bouton
+    // juste après et le lecteur d'écran lit déjà « Lancer le dé, bouton ».
+    if (replayMode === 'announce') {
+      announce('Vous rejouez !');
+    } else if (replayMode !== 'silent') {
+      announce(`Votre tour ! ${getTurnSummary(state)}.`);
+    }
     setTimeout(() => $('btn-dice').focus(), 50);
     return;
   }
 
   // ── Local / AI ──
   const colorName = COLOR_NAMES[state.currentColor];
-  const summary = getTurnSummary(state);
 
   if (aiPlayers.has(state.currentColor)) {
     setDiceEnabled(false);
-    announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
+    if (replayMode === 'announce') {
+      announce(`${aiNames[state.currentColor]} rejoue.`);
+    } else if (replayMode !== 'silent') {
+      announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
+    }
     setTimeout(aiPlayTurn, 1800);
   } else {
     setDiceEnabled(true);
-    announce(`Tour de ${colorName}. ${summary}. Lancez le dé.`);
+    if (replayMode === 'announce') {
+      announce(`${colorName} rejoue.`);
+    } else if (replayMode !== 'silent') {
+      // Résumé complet uniquement sur un vrai changement de joueur — sur un
+      // « rejoue », les positions viennent d'être annoncées coup par coup.
+      announce(`Tour de ${colorName}. ${getTurnSummary(state)}.`);
+    }
     setTimeout(() => $('btn-dice').focus(), 50);
   }
 
@@ -634,15 +653,18 @@ function onHorseSelected(horseId) {
     };
   }
 
-  setTimeout(() => endTurn(extraTurn), 600);
+  // Capture : l'annonce urgente de capture contient déjà « Vous rejouez ! » /
+  // « X rejoue ! » → beginTurn ne doit rien répéter ('silent').
+  setTimeout(() => endTurn(extraTurn, hadCapture ? 'silent' : 'announce'), 600);
 }
 
 // ─── End of turn ──────────────────────────────────────────────────────────────
 
-function endTurn(extraTurn) {
+function endTurn(extraTurn, replayMode = null) {
   if (extraTurn) {
-    announce(`${playerLabel(state.currentColor)} rejoue !`);
-    beginTurn();
+    // L'annonce « rejoue » est déléguée à beginTurn (une seule annonce, pas
+    // de doublon « X rejoue ! » suivi de « Tour de X… »).
+    beginTurn(replayMode || 'announce');
     return;
   }
 
@@ -772,7 +794,8 @@ function onRemoteGameState(gs) {
   if (state.currentColor === myColor && state.phase === 'rolling') {
     setDiceEnabled(true);
     const summary = getTurnSummary(state);
-    announce(`Votre tour ! ${summary}. Lancez le dé.`);
+    // Pas de « Lancez le dé » : le focus sur le bouton le fait déjà annoncer
+    announce(`Votre tour ! ${summary}.`);
     setTimeout(() => $('btn-dice').focus(), 50);
   }
 }
@@ -1135,7 +1158,7 @@ function initOnlineGameFromState(gs) {
 
   if (state.currentColor === myColor && state.phase === 'rolling') {
     setDiceEnabled(true);
-    announce('La partie commence ! Votre tour, lancez le dé.');
+    announce('La partie commence ! Votre tour.');
     setTimeout(() => $('btn-dice').focus(), 50);
   } else {
     setDiceEnabled(false);

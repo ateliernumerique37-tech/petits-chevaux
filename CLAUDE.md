@@ -503,6 +503,24 @@ roomCodes/$code :
 
 8. **Nettoyer les écouteurs des pions** : `_pickHandler` et `_keyHandler` stockés et retirés dans `clearHighlights`.
 
+9. **Une seule annonce de relance après un 6** (audit juillet 2026) : `beginTurn(replayMode)`
+   accepte `null` (tour normal → « Tour de X + résumé »), `'announce'` (6 sans capture →
+   « X rejoue. » court, SANS résumé — les positions viennent d'être annoncées coup par coup)
+   ou `'silent'` (capture → l'annonce urgente de capture a DÉJÀ dit « Vous rejouez ! », ne
+   rien répéter). `endTurn` n'annonce plus rien lui-même. Avant ce correctif, un 6 déclenchait
+   « X rejoue ! » + « Tour de X. résumé. Lancez le dé. » + la lecture du bouton focus — trois
+   annonces redondantes en rafale (pire avec capture : « rejoue » dit trois fois).
+
+10. **Jamais de « Lancez le dé » dans un texte suivi d'un focus sur le bouton dé** : le
+    lecteur d'écran lit déjà « Lancer le dé, bouton » à l'arrivée du focus — le répéter dans
+    l'annonce fait un doublon systématique à chaque tour.
+
+11. **Vérification des annonces en preview** : `announce()` pose le texte dans un
+    `requestAnimationFrame` — suspendu dans un onglet caché/headless. Pour tester la séquence
+    d'annonces en preview, stubber `window.requestAnimationFrame = cb => setTimeout(cb, 16)`
+    puis observer les régions `aria-status-a/b` et `aria-alert` avec un MutationObserver
+    (méthode validée en juillet 2026, séquence complète capturée et conforme).
+
 ---
 
 ## PWA et déploiement

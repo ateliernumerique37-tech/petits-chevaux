@@ -1663,7 +1663,7 @@
     announce("Partie reprise.", true);
     beginTurn();
   }
-  function beginTurn() {
+  function beginTurn(replayMode = null) {
     turnCount++;
     state.phase = "rolling";
     state.lastDice = null;
@@ -1694,20 +1694,30 @@
         return;
       }
       setDiceEnabled(true);
-      const summary2 = getTurnSummary(state);
-      announce(`Votre tour ! ${summary2}. Lancez le d\xE9.`);
+      if (replayMode === "announce") {
+        announce("Vous rejouez !");
+      } else if (replayMode !== "silent") {
+        announce(`Votre tour ! ${getTurnSummary(state)}.`);
+      }
       setTimeout(() => $2("btn-dice").focus(), 50);
       return;
     }
     const colorName = COLOR_NAMES[state.currentColor];
-    const summary = getTurnSummary(state);
     if (aiPlayers.has(state.currentColor)) {
       setDiceEnabled(false);
-      announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
+      if (replayMode === "announce") {
+        announce(`${aiNames[state.currentColor]} rejoue.`);
+      } else if (replayMode !== "silent") {
+        announce(`${aiNames[state.currentColor]} joue pour ${colorName}.`);
+      }
       setTimeout(aiPlayTurn, 1800);
     } else {
       setDiceEnabled(true);
-      announce(`Tour de ${colorName}. ${summary}. Lancez le d\xE9.`);
+      if (replayMode === "announce") {
+        announce(`${colorName} rejoue.`);
+      } else if (replayMode !== "silent") {
+        announce(`Tour de ${colorName}. ${getTurnSummary(state)}.`);
+      }
       setTimeout(() => $2("btn-dice").focus(), 50);
     }
     saveGame();
@@ -1929,12 +1939,11 @@
         replay: extraTurn
       };
     }
-    setTimeout(() => endTurn(extraTurn), 600);
+    setTimeout(() => endTurn(extraTurn, hadCapture ? "silent" : "announce"), 600);
   }
-  function endTurn(extraTurn) {
+  function endTurn(extraTurn, replayMode = null) {
     if (extraTurn) {
-      announce(`${playerLabel(state.currentColor)} rejoue !`);
-      beginTurn();
+      beginTurn(replayMode || "announce");
       return;
     }
     advanceTurn(state);
@@ -2047,7 +2056,7 @@
     if (state.currentColor === myColor && state.phase === "rolling") {
       setDiceEnabled(true);
       const summary = getTurnSummary(state);
-      announce(`Votre tour ! ${summary}. Lancez le d\xE9.`);
+      announce(`Votre tour ! ${summary}.`);
       setTimeout(() => $2("btn-dice").focus(), 50);
     }
   }
@@ -2352,7 +2361,7 @@
     updateTurnBanner(state.currentColor, state.phase, null);
     if (state.currentColor === myColor && state.phase === "rolling") {
       setDiceEnabled(true);
-      announce("La partie commence ! Votre tour, lancez le d\xE9.");
+      announce("La partie commence ! Votre tour.");
       setTimeout(() => $2("btn-dice").focus(), 50);
     } else {
       setDiceEnabled(false);
