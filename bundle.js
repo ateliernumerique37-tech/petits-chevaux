@@ -1683,6 +1683,7 @@
         prevEvents: la.events || null,
         prevCell: la.cell || null,
         prevHorseId: la.horseId ?? null,
+        prevBounced: !!la.bounced,
         prevCaptured: la.captured || null,
         prevReplay: !!la.replay
       } : {};
@@ -1821,9 +1822,10 @@
       const ids = getValidMoves(state, value);
       state.validMoveIds = ids;
       const colorName = COLOR_NAMES[state.currentColor];
+      const speakerName = playerLabel(state.currentColor);
       updateTurnBanner(state.currentColor, state.phase, value);
       if (ids.length === 0) {
-        announce(`${colorName} lance ${value}. Aucun mouvement possible.`, true);
+        announce(`${speakerName} lance ${value}. Aucun mouvement possible.`, true);
         logEvent(`${colorName} : aucun mouvement`, state.currentColor);
         play("pass-turn");
         vibrate([30, 30, 30]);
@@ -1837,12 +1839,12 @@
       state.phase = "selecting";
       if (isOnline) syncOnlineState("dice", { dice: value, playerColor: state.currentColor });
       if (ids.length === 1) {
-        announce(`${colorName} lance ${value}. Un seul cheval peut bouger.`);
+        announce(`${speakerName} lance ${value}. Un seul cheval peut bouger.`);
         const horse = state.horses.find((h) => h.color === state.currentColor && h.id === ids[0]);
         updateHorseLabel(state.currentColor, ids[0], getMoveLabel(state, horse, value));
         setTimeout(() => onHorseSelected(ids[0]), 300);
       } else {
-        announce(`${colorName} lance ${value}. ${ids.length} chevaux peuvent bouger.`);
+        announce(`${speakerName} lance ${value}. ${ids.length} chevaux peuvent bouger.`);
         ids.forEach((id) => {
           const horse = state.horses.find((h) => h.color === state.currentColor && h.id === id);
           updateHorseLabel(state.currentColor, id, getMoveLabel(state, horse, value));
@@ -1860,6 +1862,7 @@
     const events = applyMove(state, horseId, dice);
     let hadCapture = false;
     let moverCell = "";
+    let moverBounced = false;
     const eventTypes = [];
     const capturedList = [];
     for (const ev of events) {
@@ -1871,6 +1874,7 @@
         if (ev.bounced) {
           play("move");
           vibrate([30, 20, 30]);
+          moverBounced = true;
           moverCell = `couloir ${horse.relPos - 51}`;
           announce(
             `Rebond ! Cheval ${COLOR_NAMES[ev.color]} ${ev.horseId + 1} recule \xE0 la case ${horse.relPos - 51} du couloir.`
@@ -1935,6 +1939,7 @@
         events: eventTypes,
         cell: moverCell || null,
         horseId,
+        bounced: moverBounced,
         captured: capturedList.length ? capturedList : null,
         replay: extraTurn
       };
@@ -2018,7 +2023,7 @@
         if (action.prevType === "move") {
           const pname = onlinePlayerName(action.prevColor);
           const horseNum = (action.prevHorseId ?? 0) + 1;
-          let txt = action.prevCell ? `${pname} : cheval ${horseNum} avance, ${action.prevCell}.` : `${pname} a jou\xE9.`;
+          let txt = action.prevCell ? `${pname} : cheval ${horseNum} ${action.prevBounced ? "rebondit et recule" : "avance"}, ${action.prevCell}.` : `${pname} a jou\xE9.`;
           let urgent = false;
           if (action.prevCaptured) {
             for (const cap of action.prevCaptured) {
@@ -2329,6 +2334,7 @@
     clearEventLog();
     showScreen("game");
     play("exit-stable");
+    announce("La partie commence !");
     await setRoomStatus("playing");
     disarmRoomAutoDelete();
     beginTurn();

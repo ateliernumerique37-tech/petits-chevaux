@@ -363,9 +363,10 @@ roomCodes/
   un joueur déjà dans la room peut revenir même quand `status === 'playing'` (via code privé ;
   les rooms publiques en partie ne sont plus listées). ⚠️ Ne jamais remettre le test de statut
   en premier : ça rend la reconnexion impossible.
-- **Annonces distantes complètes** (`turn-start` avec `prevCell`, `prevCaptured`, `prevReplay`) :
-  le client distant annonce le déplacement (cheval + case), les captures (urgent si c'est le
-  sien) et « rejoue » — indispensable aux joueurs malvoyants.
+- **Annonces distantes complètes** (`turn-start` avec `prevCell`, `prevBounced`, `prevCaptured`,
+  `prevReplay`) : le client distant annonce le déplacement (cheval + case, « rebondit et
+  recule » pour un rebond du couloir), les captures (urgent si c'est le sien) et « rejoue » —
+  indispensable aux joueurs malvoyants.
 - **Écran de victoire protégé** : `onStatus(null)` est ignoré quand `state.phase === 'game-over'`
   (l'hôte qui ferme la room après la partie n'éjecte plus le perdant de l'écran de victoire).
 - `disarmRoomAutoDelete` **re-arme la présence** après ses `cancel()` (un `cancel()` sur un
