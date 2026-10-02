@@ -357,14 +357,20 @@
         <button id="btn-stats-back" class="btn-back" type="button">← Retour</button>
         <h2 id="stats-title" class="stats-title">Statistiques</h2>
       </header>
+      <section id="global-counters" class="stats-summary" aria-labelledby="counters-title">
+        <h3 id="counters-title" class="stats-subtitle">Parties jouées par tous les joueurs</h3>
+        <div id="counters-content" aria-live="polite"></div>
+        <p class="stats-note">Compteurs anonymes : seul le nombre de parties est enregistré, jamais aucune information sur les joueurs.</p>
+      </section>
+      <h3 class="stats-subtitle">Mon historique sur cet appareil</h3>
       <div id="stats-content"></div>
       <button id="btn-stats-clear" class="btn-quit" type="button" hidden>Effacer l'historique</button>
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-database-compat.js"></script>
   <script src="bundle.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

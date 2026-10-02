@@ -1040,7 +1040,34 @@
     container.innerHTML = html;
     if (clearBtn) clearBtn.hidden = false;
   }
-  function initStatsScreen(onBack) {
+  var plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
+  function countersLines(c) {
+    return `<p>Contre l'IA ou entre amis (local) : <strong>${plural(c.local, "partie")}</strong></p><p>En ligne : <strong>${plural(c.online, "partie")}</strong></p><p>Total : <strong>${plural(c.local + c.online, "partie")}</strong></p>`;
+  }
+  async function renderGlobalCounters(fetchCounters) {
+    const box = $("counters-content");
+    if (!box) return;
+    box.innerHTML = "<p>Chargement\u2026</p>";
+    const data = fetchCounters ? await fetchCounters() : null;
+    if (!data) {
+      box.innerHTML = "<p>Compteurs indisponibles (hors ligne).</p>";
+      return;
+    }
+    const year = String((/* @__PURE__ */ new Date()).getFullYear());
+    const cur = data[year] || { local: 0, online: 0 };
+    let html = `<p class="stats-subtitle">Ann\xE9e ${year}</p>` + countersLines(cur);
+    const past = Object.keys(data).filter((y) => y !== year).sort().reverse();
+    if (past.length > 0) {
+      html += '<details class="counter-archive"><summary>Archive des ann\xE9es pr\xE9c\xE9dentes</summary>';
+      for (const y of past) {
+        const c = data[y];
+        html += `<p class="stats-subtitle">Ann\xE9e ${escText(y)}</p>` + countersLines(c);
+      }
+      html += "</details>";
+    }
+    box.innerHTML = html;
+  }
+  function initStatsScreen(onBack, fetchCounters) {
     const backBtn = $("btn-stats-back");
     if (backBtn) backBtn.addEventListener("click", onBack);
     const statsBtn = $("btn-stats");
@@ -1048,6 +1075,7 @@
       statsBtn.addEventListener("click", () => {
         renderStats();
         showScreen("stats");
+        renderGlobalCounters(fetchCounters);
       });
     }
     const clearBtn = $("btn-stats-clear");
@@ -1409,6 +1437,33 @@
     cleanupFns.forEach((fn) => fn());
     cleanupFns = [];
   }
+  var COUNTER_KINDS = ["local", "online"];
+  function countGame(kind) {
+    try {
+      if (!COUNTER_KINDS.includes(kind)) return;
+      initFirebase();
+      if (!db) return;
+      const year = (/* @__PURE__ */ new Date()).getFullYear();
+      db.ref(`gameCounters/${year}/${kind}`).transaction((n) => (typeof n === "number" ? n : 0) + 1).catch(() => {
+      });
+    } catch {
+    }
+  }
+  async function fetchGameCounters() {
+    try {
+      initFirebase();
+      if (!db) return null;
+      const snap = await db.ref("gameCounters").get();
+      const raw = snap.val() || {};
+      const out = {};
+      for (const [year, v] of Object.entries(raw)) {
+        out[year] = { local: Number(v?.local) || 0, online: Number(v?.online) || 0 };
+      }
+      return out;
+    } catch {
+      return null;
+    }
+  }
 
   // js/main.js
   var state = null;
@@ -1575,7 +1630,7 @@
       showScreen("setup");
     });
     initResumeButton(resumeGame);
-    initStatsScreen(() => showScreen("setup"));
+    initStatsScreen(() => showScreen("setup"), fetchGameCounters);
     initOnlineScreens();
     document.addEventListener("keydown", handleKeyboard);
     showResumeButton(!!loadSave());
@@ -1624,6 +1679,7 @@
     aiDifficulty = difficulty || "normal";
     turnCount = 0;
     gameStartTime = Date.now();
+    countGame("local");
     state = createGame(playerCount, winMode);
     aiPlayers = /* @__PURE__ */ new Set();
     aiNames = {};
@@ -2335,6 +2391,7 @@
     showScreen("game");
     play("exit-stable");
     announce("La partie commence !");
+    countGame("online");
     await setRoomStatus("playing");
     disarmRoomAutoDelete();
     beginTurn();

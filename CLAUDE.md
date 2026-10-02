@@ -376,6 +376,19 @@ roomCodes/
 
 ---
 
+## Compteurs de parties anonymes (octobre 2026)
+
+- `gameCounters/$année/{local,online}` dans la RTDB : un simple entier incrémenté (transaction)
+  à chaque nouvelle partie. **Aucune authentification, aucun identifiant, aucune donnée
+  personnelle.** `countGame(kind)` / `fetchGameCounters()` dans `online.js`.
+- Local : compté dans `startGame` (pas à la reprise de sauvegarde). En ligne : compté par l'hôte
+  seul, au lancement (`startOnlineGame`).
+- Affichage : écran Statistiques (année en cours + total, années passées dans un `<details>`).
+- Règles : écriture autorisée uniquement si la nouvelle valeur = ancienne + 1 → **à déployer**
+  avec `firebase deploy --only database`.
+- SDK Firebase CDN passé de 10.12.2 à 12.19.0 (compat). `npm audit` signalait @grpc/grpc-js
+  (Firestore/Node), non embarqué par l'app.
+
 ## Firebase — Configuration et déploiement
 
 ### Projet Firebase
@@ -529,7 +542,7 @@ roomCodes/$code :
 ### Service Worker
 
 Stratégie **network-first** pour le cœur de l'app depuis v18 (voir section Build ci-dessus
-pour le détail). Version actuelle : `petits-chevaux-v24`.
+pour le détail). Version actuelle : `petits-chevaux-v29`.
 Incrémenter `CACHE` à chaque déploiement modifiant des fichiers statiques — reste une bonne
 pratique même si non critique pour la fraîcheur avec le network-first.
 

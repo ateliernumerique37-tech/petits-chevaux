@@ -288,7 +288,41 @@ export function renderStats() {
   if (clearBtn) clearBtn.hidden = false;
 }
 
-export function initStatsScreen(onBack) {
+const plural = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+
+function countersLines(c) {
+  return `<p>Contre l'IA ou entre amis (local) : <strong>${plural(c.local, 'partie')}</strong></p>`
+    + `<p>En ligne : <strong>${plural(c.online, 'partie')}</strong></p>`
+    + `<p>Total : <strong>${plural(c.local + c.online, 'partie')}</strong></p>`;
+}
+
+// Compteurs globaux anonymes : année en cours en évidence, années passées
+// dans une archive repliable. `fetchCounters` vient de main.js (Firebase).
+export async function renderGlobalCounters(fetchCounters) {
+  const box = $('counters-content');
+  if (!box) return;
+  box.innerHTML = '<p>Chargement…</p>';
+  const data = fetchCounters ? await fetchCounters() : null;
+  if (!data) {
+    box.innerHTML = '<p>Compteurs indisponibles (hors ligne).</p>';
+    return;
+  }
+  const year = String(new Date().getFullYear());
+  const cur = data[year] || { local: 0, online: 0 };
+  let html = `<p class="stats-subtitle">Année ${year}</p>` + countersLines(cur);
+  const past = Object.keys(data).filter(y => y !== year).sort().reverse();
+  if (past.length > 0) {
+    html += '<details class="counter-archive"><summary>Archive des années précédentes</summary>';
+    for (const y of past) {
+      const c = data[y];
+      html += `<p class="stats-subtitle">Année ${escText(y)}</p>` + countersLines(c);
+    }
+    html += '</details>';
+  }
+  box.innerHTML = html;
+}
+
+export function initStatsScreen(onBack, fetchCounters) {
   const backBtn = $('btn-stats-back');
   if (backBtn) backBtn.addEventListener('click', onBack);
 
@@ -297,6 +331,7 @@ export function initStatsScreen(onBack) {
     statsBtn.addEventListener('click', () => {
       renderStats();
       showScreen('stats');
+      renderGlobalCounters(fetchCounters);
     });
   }
 

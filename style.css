@@ -766,6 +766,22 @@ html.theme-dark {
   margin-top: 0.5rem;
 }
 
+.stats-note {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--on-surface-2);
+}
+
+.counter-archive summary {
+  cursor: pointer;
+  font-weight: 700;
+  min-height: var(--min-touch);
+  display: flex;
+  align-items: center;
+}
+
+.counter-archive ul { margin: 0; }
+
 .stats-list {
   list-style: none;
   display: flex;

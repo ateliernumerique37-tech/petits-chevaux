@@ -25,7 +25,7 @@ import {
   isFirebaseAvailable, createRoom, joinRoom, joinRoomByCode,
   listenPublicRooms, listenRoom, writeGameState, setRoomStatus,
   leaveRoom, cleanupAll, getUid, isHost, getCurrentRoomId,
-  getSavedName, saveName, disarmRoomAutoDelete, sweepOwnOrphanRoom,
+  getSavedName, saveName, disarmRoomAutoDelete, sweepOwnOrphanRoom, countGame, fetchGameCounters,
 } from './online.js';
 
 let state = null;
@@ -211,7 +211,7 @@ window.addEventListener('DOMContentLoaded', () => {
     showScreen('setup');
   });
   initResumeButton(resumeGame);
-  initStatsScreen(() => showScreen('setup'));
+  initStatsScreen(() => showScreen('setup'), fetchGameCounters);
   initOnlineScreens();
 
   document.addEventListener('keydown', handleKeyboard);
@@ -269,6 +269,7 @@ function startGame(playerCount, isAiMode, winMode, difficulty) {
   aiDifficulty = difficulty || 'normal';
   turnCount = 0;
   gameStartTime = Date.now();
+  countGame('local');
   state = createGame(playerCount, winMode);
 
   aiPlayers = new Set();
@@ -1126,6 +1127,7 @@ async function onStartOnlineGame() {
   // Le rejoignant entend « La partie commence ! » (initOnlineGameFromState) ;
   // l'hôte doit l'entendre aussi, avant l'annonce de tour de beginTurn.
   announce('La partie commence !');
+  countGame('online'); // l'hôte seul compte la partie (une fois par partie)
   await setRoomStatus('playing');
   disarmRoomAutoDelete(); // ne plus supprimer la room sur coupure réseau pendant la partie
   beginTurn();

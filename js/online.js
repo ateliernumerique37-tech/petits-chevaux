@@ -330,3 +330,37 @@ export function cleanupAll() {
   cleanupFns.forEach(fn => fn());
   cleanupFns = [];
 }
+
+// ─── Compteurs de parties (anonymes) ─────────────────────────────────────────
+// Aucune donnée personnelle : seulement un entier par année et par type
+// ('local' | 'online'), incrémenté d'une unité à chaque nouvelle partie.
+// Pas d'authentification, pas d'identifiant, rien n'est lié à un joueur.
+
+const COUNTER_KINDS = ['local', 'online'];
+
+export function countGame(kind) {
+  try {
+    if (!COUNTER_KINDS.includes(kind)) return;
+    initFirebase();
+    if (!db) return;
+    const year = new Date().getFullYear();
+    db.ref(`gameCounters/${year}/${kind}`)
+      .transaction(n => (typeof n === 'number' ? n : 0) + 1)
+      .catch(() => {});
+  } catch {}
+}
+
+// Retourne { 2026: { local, online }, 2025: {...}, ... } ou null si indisponible.
+export async function fetchGameCounters() {
+  try {
+    initFirebase();
+    if (!db) return null;
+    const snap = await db.ref('gameCounters').get();
+    const raw = snap.val() || {};
+    const out = {};
+    for (const [year, v] of Object.entries(raw)) {
+      out[year] = { local: Number(v?.local) || 0, online: Number(v?.online) || 0 };
+    }
+    return out;
+  } catch { return null; }
+}

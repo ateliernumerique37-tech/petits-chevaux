@@ -61,6 +61,16 @@
       }
     },
 
+    "gameCounters": {
+      ".read": true,
+      "$year": {
+        ".validate": "$year.matches(/^20[2-9][0-9]$/)",
+        "$kind": {
+          ".write": "($kind === 'local' || $kind === 'online') && newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1)"
+        }
+      }
+    },
+
     "roomCodes": {
       "$code": {
         ".read": "auth !== null",
