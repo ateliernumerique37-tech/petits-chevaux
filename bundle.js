@@ -1438,14 +1438,75 @@
     cleanupFns = [];
   }
   var COUNTER_KINDS = ["local", "online"];
+  var PENDING_KEY = "petits-chevaux-pending-counts";
+  var PENDING_MAX = 200;
+  var inFlight = /* @__PURE__ */ new Set();
+  var retryTimer = null;
+  var retryDelay = 4e3;
+  function readPending() {
+    try {
+      const a = JSON.parse(localStorage.getItem(PENDING_KEY) || "[]");
+      return Array.isArray(a) ? a : [];
+    } catch {
+      return [];
+    }
+  }
+  function writePending(list) {
+    try {
+      localStorage.setItem(PENDING_KEY, JSON.stringify(list.slice(-PENDING_MAX)));
+    } catch {
+    }
+  }
+  function sendCount(entry) {
+    if (inFlight.has(entry.id)) return Promise.resolve(false);
+    inFlight.add(entry.id);
+    const TS = fb().database.ServerValue.TIMESTAMP;
+    return signIn().then(() => db.ref(`gameCounters/${entry.year}`).transaction((cur) => {
+      const c = cur && typeof cur === "object" ? cur : {};
+      return {
+        local: (Number(c.local) || 0) + (entry.kind === "local" ? 1 : 0),
+        online: (Number(c.online) || 0) + (entry.kind === "online" ? 1 : 0),
+        lastAt: TS
+      };
+    })).then((res) => {
+      if (!res.committed) return false;
+      writePending(readPending().filter((e) => e.id !== entry.id));
+      return true;
+    }).catch(() => false).finally(() => inFlight.delete(entry.id));
+  }
+  async function flushPendingCounts() {
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+    try {
+      initFirebase();
+      if (!db) return;
+      for (const entry of readPending()) {
+        const ok = await sendCount(entry);
+        if (!ok) {
+          if (retryDelay <= 64e3) {
+            retryTimer = setTimeout(flushPendingCounts, retryDelay + Math.random() * 1e3);
+            retryDelay *= 2;
+          }
+          return;
+        }
+        retryDelay = 4e3;
+      }
+    } catch {
+    }
+  }
   function countGame(kind) {
     try {
       if (!COUNTER_KINDS.includes(kind)) return;
-      initFirebase();
-      if (!db) return;
-      const year = (/* @__PURE__ */ new Date()).getFullYear();
-      db.ref(`gameCounters/${year}/${kind}`).transaction((n) => (typeof n === "number" ? n : 0) + 1).catch(() => {
+      const list = readPending();
+      list.push({
+        id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+        year: (/* @__PURE__ */ new Date()).getFullYear(),
+        kind
       });
+      writePending(list);
+      flushPendingCounts();
     } catch {
     }
   }
@@ -1597,6 +1658,8 @@
   }
   window.addEventListener("DOMContentLoaded", () => {
     loadSounds();
+    flushPendingCounts();
+    window.addEventListener("online", flushPendingCounts);
     initThemeToggle();
     initShakeToggle(() => {
       motionRequestedThisSession = false;

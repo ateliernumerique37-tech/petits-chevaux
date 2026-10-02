@@ -332,21 +332,87 @@ export function cleanupAll() {
 }
 
 // ─── Compteurs de parties (anonymes) ─────────────────────────────────────────
-// Aucune donnée personnelle : seulement un entier par année et par type
-// ('local' | 'online'), incrémenté d'une unité à chaque nouvelle partie.
-// Pas d'authentification, pas d'identifiant, rien n'est lié à un joueur.
+// Aucune donnée personnelle : seulement { local, online } par année, incrémenté
+// d'une unité à chaque nouvelle partie. Rien n'est lié à un joueur.
+//
+// File d'attente hors ligne : chaque partie est d'abord inscrite dans le
+// localStorage de l'appareil (année + type + id aléatoire local, jamais envoyé),
+// puis envoyée au serveur. Si l'envoi échoue (hors ligne, SDK non chargé, limite
+// de débit des règles), l'entrée reste en file et repart au prochain lancement,
+// au retour du réseau, ou à la prochaine partie.
 
 const COUNTER_KINDS = ['local', 'online'];
+const PENDING_KEY = 'petits-chevaux-pending-counts';
+const PENDING_MAX = 200;
+const inFlight = new Set();
+let retryTimer = null;
+let retryDelay = 4000;
+
+function readPending() {
+  try {
+    const a = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+
+function writePending(list) {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(list.slice(-PENDING_MAX))); } catch {}
+}
+
+function sendCount(entry) {
+  if (inFlight.has(entry.id)) return Promise.resolve(false);
+  inFlight.add(entry.id);
+  const TS = fb().database.ServerValue.TIMESTAMP;
+  return signIn()
+    .then(() => db.ref(`gameCounters/${entry.year}`).transaction(cur => {
+      const c = cur && typeof cur === 'object' ? cur : {};
+      return {
+        local: (Number(c.local) || 0) + (entry.kind === 'local' ? 1 : 0),
+        online: (Number(c.online) || 0) + (entry.kind === 'online' ? 1 : 0),
+        lastAt: TS,
+      };
+    }))
+    .then(res => {
+      if (!res.committed) return false;
+      writePending(readPending().filter(e => e.id !== entry.id));
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => inFlight.delete(entry.id));
+}
+
+// Envoie, une par une, les parties en attente. Les règles Firebase limitent le
+// débit : en cas de refus, on réessaie plus tard avec un délai croissant.
+export async function flushPendingCounts() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  try {
+    initFirebase();
+    if (!db) return;
+    for (const entry of readPending()) {
+      const ok = await sendCount(entry);
+      if (!ok) {
+        if (retryDelay <= 64000) {
+          retryTimer = setTimeout(flushPendingCounts, retryDelay + Math.random() * 1000);
+          retryDelay *= 2;
+        }
+        return;
+      }
+      retryDelay = 4000;
+    }
+  } catch {}
+}
 
 export function countGame(kind) {
   try {
     if (!COUNTER_KINDS.includes(kind)) return;
-    initFirebase();
-    if (!db) return;
-    const year = new Date().getFullYear();
-    db.ref(`gameCounters/${year}/${kind}`)
-      .transaction(n => (typeof n === 'number' ? n : 0) + 1)
-      .catch(() => {});
+    const list = readPending();
+    list.push({
+      id: Math.random().toString(36).slice(2) + Date.now().toString(36),
+      year: new Date().getFullYear(),
+      kind,
+    });
+    writePending(list);
+    flushPendingCounts();
   } catch {}
 }
 

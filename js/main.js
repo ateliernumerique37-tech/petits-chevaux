@@ -25,7 +25,7 @@ import {
   isFirebaseAvailable, createRoom, joinRoom, joinRoomByCode,
   listenPublicRooms, listenRoom, writeGameState, setRoomStatus,
   leaveRoom, cleanupAll, getUid, isHost, getCurrentRoomId,
-  getSavedName, saveName, disarmRoomAutoDelete, sweepOwnOrphanRoom, countGame, fetchGameCounters,
+  getSavedName, saveName, disarmRoomAutoDelete, sweepOwnOrphanRoom, countGame, fetchGameCounters, flushPendingCounts,
 } from './online.js';
 
 let state = null;
@@ -174,6 +174,8 @@ async function requestMotionPermission() {
 
 window.addEventListener('DOMContentLoaded', () => {
   loadSounds();
+  flushPendingCounts();
+  window.addEventListener('online', flushPendingCounts);
   initThemeToggle();
   initShakeToggle(() => {
     // L'utilisateur vient d'activer « secouer » : redemander la permission

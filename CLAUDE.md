@@ -378,14 +378,22 @@ roomCodes/
 
 ## Compteurs de parties anonymes (octobre 2026)
 
-- `gameCounters/$année/{local,online}` dans la RTDB : un simple entier incrémenté (transaction)
-  à chaque nouvelle partie. **Aucune authentification, aucun identifiant, aucune donnée
-  personnelle.** `countGame(kind)` / `fetchGameCounters()` dans `online.js`.
+- `gameCounters/$année` = `{ local, online, lastAt }` dans la RTDB. **Aucun identifiant, aucune
+  donnée personnelle** n'est écrit. `countGame(kind)`, `flushPendingCounts()`,
+  `fetchGameCounters()` dans `online.js`.
 - Local : compté dans `startGame` (pas à la reprise de sauvegarde). En ligne : compté par l'hôte
   seul, au lancement (`startOnlineGame`).
+- **File d'attente hors ligne** : chaque partie est d'abord stockée dans le localStorage
+  (`petits-chevaux-pending-counts`), puis envoyée. Échec (hors ligne, SDK non chargé, refus des
+  règles) → l'entrée reste et repart au lancement suivant, à l'événement `online`, ou à la
+  partie suivante (retry avec délai croissant, max ~1 min dans la session).
+- **Anti-triche** (règles) : écriture authentifiée (auth anonyme, aucun lien avec les compteurs),
+  exactement +1 au total par écriture, `lastAt === now` et ≥ 2 s depuis la précédente (plafond
+  global ≈ 1 partie / 2 s), suppression impossible. Ce n'est PAS infaillible (un script peut
+  se connecter en anonyme) : un vrai verrou demande App Check ou une Cloud Function.
 - Affichage : écran Statistiques (année en cours + total, années passées dans un `<details>`).
-- Règles : écriture autorisée uniquement si la nouvelle valeur = ancienne + 1 → **à déployer**
-  avec `firebase deploy --only database`.
+- Règles à **déployer** : `firebase deploy --only database` (non testées à l'émulateur : jar
+  non téléchargeable depuis l'environnement distant).
 - SDK Firebase CDN passé de 10.12.2 à 12.19.0 (compat). `npm audit` signalait @grpc/grpc-js
   (Firestore/Node), non embarqué par l'app.
 
@@ -542,7 +550,7 @@ roomCodes/$code :
 ### Service Worker
 
 Stratégie **network-first** pour le cœur de l'app depuis v18 (voir section Build ci-dessus
-pour le détail). Version actuelle : `petits-chevaux-v29`.
+pour le détail). Version actuelle : `petits-chevaux-v30`.
 Incrémenter `CACHE` à chaque déploiement modifiant des fichiers statiques — reste une bonne
 pratique même si non critique pour la fraîcheur avec le network-first.
 

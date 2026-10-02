@@ -64,10 +64,12 @@
     "gameCounters": {
       ".read": true,
       "$year": {
-        ".validate": "$year.matches(/^20[2-9][0-9]$/)",
-        "$kind": {
-          ".write": "($kind === 'local' || $kind === 'online') && newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1)"
-        }
+        ".write": "auth !== null && newData.child('lastAt').val() === now && (!data.child('lastAt').exists() || now - data.child('lastAt').val() >= 2000) && (newData.child('local').val() - (data.child('local').exists() ? data.child('local').val() : 0)) >= 0 && (newData.child('online').val() - (data.child('online').exists() ? data.child('online').val() : 0)) >= 0 && (newData.child('local').val() - (data.child('local').exists() ? data.child('local').val() : 0)) + (newData.child('online').val() - (data.child('online').exists() ? data.child('online').val() : 0)) === 1",
+        ".validate": "$year.matches(/^20[2-9][0-9]$/) && newData.hasChildren(['local', 'online', 'lastAt'])",
+        "local":  { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "online": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "lastAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
       }
     },
 
