@@ -23,7 +23,7 @@ petits-chevaux/
 ├── regles.html         # Page des règles du jeu (accessible, hors SPA)
 ├── style.css           # Feuille de style unique (dark mode, high contrast, reduced motion)
 ├── manifest.json       # PWA manifest (icône SVG inline)
-├── service-worker.js   # Cache offline (strategy: cache-first), auto-update via skipWaiting
+├── service-worker.js   # Cache offline (strategy: network-first depuis v18), auto-update via skipWaiting
 ├── bundle.js           # Artefact de build (NE PAS éditer directement)
 ├── firebase.json       # Config Firebase (pointe vers database.rules.json)
 ├── database.rules.json # Règles de sécurité Firebase Realtime Database
@@ -37,7 +37,7 @@ petits-chevaux/
 │   ├── victory.mp3
 │   ├── pass-turn.mp3
 │   └── pass-phone.mp3  # Gardé dans les assets (son encore présent)
-└── js/                 # Sources ES Modules (non committées sauf main.js)
+└── js/                 # Sources ES Modules, toutes committées
     ├── main.js         # Orchestrateur — initialisation, gestion des tours, clavier, online
     ├── online.js       # Module Firebase — auth anonyme, salons, sync temps réel
     ├── game.js         # Logique pure du jeu (pas de DOM)
@@ -46,8 +46,7 @@ petits-chevaux/
     └── sound.js        # Chargement et lecture des sons
 ```
 
-> **Règle Git** : seuls `bundle.js`, `js/main.js`, `database.rules.json` et `firebase.json` sont commités.
-> Les autres fichiers `js/` (dont `online.js`) sont dans `.gitignore` (bundlés dans `bundle.js`).
+> **Règle Git** : pas de `.gitignore` dans ce projet — `bundle.js` et tous les fichiers `js/` sont commités.
 
 ---
 
@@ -71,7 +70,7 @@ Conséquence : **la fraîcheur de la PWA ne dépend plus du bump de `CACHE`**. T
 l'appareil est en ligne, la PWA charge toujours la dernière version déployée — même si
 on oublie d'incrémenter le numéro.
 
-Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v18**) reste utile mais
+Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v30**) reste utile mais
 **non critique** : il sert seulement à purger les anciens caches au prochain `activate`.
 
 > **Historique du bug (juin 2026)** : avant v18, la stratégie était **cache-first**.
@@ -392,8 +391,22 @@ roomCodes/
   global ≈ 1 partie / 2 s), suppression impossible. Ce n'est PAS infaillible (un script peut
   se connecter en anonyme) : un vrai verrou demande App Check ou une Cloud Function.
 - Affichage : écran Statistiques (année en cours + total, années passées dans un `<details>`).
-- Règles à **déployer** : `firebase deploy --only database` (non testées à l'émulateur : jar
-  non téléchargeable depuis l'environnement distant).
+- **Livraison du 3 octobre 2026** : les commits `6703451` et `e4f000c` sont sur `master` ;
+  GitHub Pages servait déjà la page Statistiques, le bundle des compteurs et le service worker
+  `v30`. Les règles ont été publiées séparément avec
+  `firebase deploy --only database --project petits-chevaux-online`. La version active a été
+  relue puis comparée au JSON du dépôt : contenu identique. Une copie des règles précédentes
+  est conservée localement hors du dépôt dans
+  `../.deployment-backups/petits-chevaux/database.rules.before-2026-10-02.json`.
+- **Vérifications** : syntaxe JS et JSON valide,
+  `firebase deploy --only database --project petits-chevaux-online --dry-run`
+  réussi. Sur les émulateurs Auth + RTDB d'un projet `demo-` isolé : lecture publique et
+  incrément de +1 authentifié acceptés ; écriture sans authentification, incrément de +2,
+  suppression et second incrément immédiat refusés. En production, la lecture publique de
+  `/gameCounters.json` a répondu HTTP 200 avec `null` (aucune donnée encore enregistrée) ;
+  l'écran Statistiques affichait les trois compteurs 2026 à zéro. Aucun incrément fictif
+  n'a été fait en production : la première vraie partie reste à vérifier de bout en bout.
+  La sortie vocale NVDA n'a pas été testée lors de cette livraison.
 - SDK Firebase CDN passé de 10.12.2 à 12.19.0 (compat). `npm audit` signalait @grpc/grpc-js
   (Firestore/Node), non embarqué par l'app.
 
@@ -701,10 +714,7 @@ surface). Modeste mais garanti sûr. Mobile portrait et paysage téléphone : **
 ## Commandes utiles
 
 ```bash
-# Rebuilder le bundle après modification d'un fichier js/
-npx esbuild js/main.js --bundle --outfile=bundle.js --format=iife --platform=browser
-
-# Committer et déployer
+# Committer et déployer (rebuild du bundle : voir section Build)
 git add bundle.js js/main.js [autres fichiers modifiés]
 git commit -m "description"
 git push origin master
@@ -712,24 +722,8 @@ git push origin master
 # Surveiller le déploiement
 gh run list --repo ateliernumerique37-tech/petits-chevaux
 gh run view <RUN_ID> --repo ateliernumerique37-tech/petits-chevaux
-
-# Déployer les règles Firebase RTDB
-firebase deploy --only database --project petits-chevaux-online
-
-# Voir le contenu de la base Firebase
-ACCESS_TOKEN=$(gcloud auth print-access-token)
-curl "https://petits-chevaux-online-default-rtdb.europe-west1.firebasedatabase.app/.json?access_token=$ACCESS_TOKEN"
-
-# Nettoyer les rooms orphelines
-curl -X DELETE "https://petits-chevaux-online-default-rtdb.europe-west1.firebasedatabase.app/rooms.json?access_token=$ACCESS_TOKEN"
-curl -X DELETE "https://petits-chevaux-online-default-rtdb.europe-west1.firebasedatabase.app/publicRooms.json?access_token=$ACCESS_TOKEN"
-curl -X DELETE "https://petits-chevaux-online-default-rtdb.europe-west1.firebasedatabase.app/roomCodes.json?access_token=$ACCESS_TOKEN"
-
-# Activer l'auth anonyme Firebase (si besoin de reconfigurer)
-ACCESS_TOKEN=$(gcloud auth print-access-token)
-curl -X PATCH "https://identitytoolkit.googleapis.com/v2/projects/petits-chevaux-online/config?updateMask=signIn.anonymous.enabled" \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -H "x-goog-user-project: petits-chevaux-online" \
-  -d '{"signIn":{"anonymous":{"enabled":true}}}'
 ```
+
+Pour rebuilder le bundle, déployer les règles Firebase, consulter/nettoyer la base ou
+reconfigurer l'auth anonyme : voir respectivement les sections *Build*, *Déployer les règles
+de sécurité*, *Nettoyer la base de données* et *Comment tout a été mis en place* ci-dessus.
