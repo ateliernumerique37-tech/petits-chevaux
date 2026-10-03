@@ -70,7 +70,7 @@ Conséquence : **la fraîcheur de la PWA ne dépend plus du bump de `CACHE`**. T
 l'appareil est en ligne, la PWA charge toujours la dernière version déployée — même si
 on oublie d'incrémenter le numéro.
 
-Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v30**) reste utile mais
+Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v31**) reste utile mais
 **non critique** : il sert seulement à purger les anciens caches au prochain `activate`.
 
 > **Historique du bug (juin 2026)** : avant v18, la stratégie était **cache-first**.
@@ -563,7 +563,7 @@ roomCodes/$code :
 ### Service Worker
 
 Stratégie **network-first** pour le cœur de l'app depuis v18 (voir section Build ci-dessus
-pour le détail). Version actuelle : `petits-chevaux-v30`.
+pour le détail). Version actuelle : `petits-chevaux-v31`.
 Incrémenter `CACHE` à chaque déploiement modifiant des fichiers statiques — reste une bonne
 pratique même si non critique pour la fraîcheur avec le network-first.
 
@@ -581,7 +581,7 @@ pratique même si non critique pour la fraîcheur avec le network-first.
 
 ---
 
-## SEO — référencement classique et moteurs IA (juillet 2026)
+## SEO — référencement classique et moteurs IA (juillet–octobre 2026)
 
 ### Constat de départ
 
@@ -595,20 +595,27 @@ script** — sans filet, ils ne verraient qu'une page vide.
 - **`<noscript>`** dans `index.html` : contenu textuel réel (titre, description, lien vers
   les règles) visible par tout robot qui ne rend pas le JS. C'est le filet le plus important.
 - **JSON-LD `schema.org/VideoGame`** dans `<head>` de `index.html` : nom, description,
-  gratuité (`isAccessibleForFree`), nombre de joueurs, et surtout les propriétés
-  d'accessibilité (`accessibilityFeature`, `accessibilityControl`, `accessibilityHazard`) —
-  la source la plus fiable pour qu'un moteur IA comprenne le site sans deviner.
+  gratuité (`isAccessibleForFree`), nombre de joueurs et propriétés d'accessibilité.
+  Ces données décrivent le jeu sans exécution de JavaScript ; elles ne garantissent ni
+  l'indexation ni un résultat enrichi dans Google.
 - **Meta tags enrichis** : title/description orientés recherche (mots-clés : petits chevaux,
   ludo, jeu accessible, malvoyant, multijoueur en ligne), `<link rel="canonical">`,
   Open Graph + Twitter Card (partage sur réseaux sociaux et aperçus de liens).
 - **`regles.html`** : déjà une page statique classique entièrement visible sans JS (donc
   déjà bien indexable) — meta description, canonical et OG ajoutés en plus.
-- **`robots.txt`** : `Allow: /` explicite pour tous les user-agents, y compris les robots
-  IA — intentionnel, pas d'oubli. Référence le sitemap.
-- **`sitemap.xml`** : liste `index.html` et `regles.html`. Pas de `<lastmod>` (retiré après
-  audit) : une date figée non maintenue à chaque déploiement serait un signal de fraîcheur
-  trompeur pour Google — celui-ci se base alors sur le header HTTP `Last-Modified`, fiable
-  car déduit automatiquement par GitHub Pages du commit.
+- **`robots.txt` du projet** : publié sous `/petits-chevaux/`, mais les moteurs cherchent
+  `robots.txt` à la racine du domaine. Le 3 octobre 2026, cette URL racine répondait 404 :
+  aucun blocage d'exploration n'a été constaté. Le fichier du projet est informatif ; sa
+  directive `Sitemap:` n'est pas un moyen fiable de faire découvrir le sitemap.
+- **`sitemap.xml`** : liste les deux URL canoniques (`/petits-chevaux/` et `regles.html`).
+  `<lastmod>` reste absent tant que sa date ne peut pas être tenue à jour avec précision.
+  Les champs `<changefreq>` et `<priority>`, ignorés par Google, ont été retirés. Le sitemap
+  est public, mais son dépôt dans Google Search Console n'a pas été vérifié.
+- **`llms.txt`** : résumé Markdown à `/petits-chevaux/llms.txt` avec liens vers le jeu,
+  les règles et la documentation. Cette position sous un chemin de site de projet est prévue
+  par la proposition llms.txt v2. `rel="describedby"` dans les deux pages HTML le signale aux
+  agents qui prennent en charge cette relation. Sa présence ne garantit aucune utilisation
+  par les moteurs de recherche ou les assistants IA.
 - **`og-image.png`** (1200×630, thème bois/or du plateau) : image de partage utilisée par
   toutes les balises `og:image`/`twitter:image`, sur `index.html` et `regles.html`. Générée
   depuis `og-image.svg` (conservé dans le repo comme source, non référencé/précaché) via
@@ -622,10 +629,12 @@ script** — sans filet, ils ne verraient qu'une page vide.
 - **Favicon HTML explicite** (`<link rel="icon">`, réutilise l'icône PWA en data-URI SVG) sur
   `index.html`, `regles.html` et `404.html` — Google affiche les favicons dans les SERP mobiles.
 - **JSON-LD `schema.org/Article`** sur `regles.html` (en plus du `VideoGame` sur `index.html`).
-- **Audit SEO** (agent `searchfit-seo:seo-auditor`, juillet 2026) : score initial 78/100.
-  Points forts confirmés : `<noscript>`, JSON-LD `VideoGame`, `robots.txt` explicite pour
-  les robots IA, accessibilité. Points corrigés depuis : image OG en PNG, `<lastmod>` retiré,
-  `regles.html` aligné (title, Twitter Card, JSON-LD), favicon, page 404.
+- **Audit historique** (juillet 2026) : score initial 78/100 avant les corrections de
+  l'époque. Ce chiffre ne décrit pas l'état actuel. Le contrôle d'octobre 2026 a confirmé
+  les deux pages publiques en HTTP 200, l'image de partage en HTTP 200 et la page introuvable
+  en HTTP 404. Les descriptions de partage ne revendiquent plus une accessibilité « 100 % »
+  que ce contrôle SEO ne peut pas attester ; la balise `meta keywords`, ignorée par Google,
+  a été retirée.
 
 ### Limite structurelle assumée
 

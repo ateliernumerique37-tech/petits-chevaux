@@ -38,6 +38,8 @@ L'accessibilité n'est pas une couche ajoutée après coup, elle a dicté plusie
 
 Le détail technique complet (architecture des modules, structure Firebase, règles de sécurité, pièges rencontrés et leur résolution) est documenté dans [`CLAUDE.md`](./CLAUDE.md), qui sert de mémoire de développement au projet.
 
+Les assistants qui lisent le site peuvent consulter son [résumé `llms.txt`](https://ateliernumerique37-tech.github.io/petits-chevaux/llms.txt), qui renvoie vers le jeu, les règles et la documentation.
+
 ---
 
 *Développé par Saifeddin Ayedi — coach en accessibilité numérique, Tours (37).*

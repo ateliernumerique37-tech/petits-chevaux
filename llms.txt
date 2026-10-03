@@ -1,0 +1,18 @@
+# Petits Chevaux
+
+> Jeu gratuit de Petits Chevaux (Ludo français), conçu pour être joué au clavier et avec un lecteur d'écran. Modes solo contre l'ordinateur, local à plusieurs sur un appareil et multijoueur en ligne.
+
+Le jeu est en français. La page des règles est lisible sans JavaScript ; jouer nécessite JavaScript. Les parties en ligne utilisent une connexion anonyme. Les statistiques publiques présentent seulement des nombres de parties, sans identité des joueurs.
+
+## Pages principales
+
+- [Jouer aux Petits Chevaux](https://ateliernumerique37-tech.github.io/petits-chevaux/) : choix du mode de jeu et lancement d'une partie.
+- [Règles du jeu de Petits Chevaux](https://ateliernumerique37-tech.github.io/petits-chevaux/regles.html) : déplacement, captures, cases protégées, triple 6, victoire et raccourcis clavier.
+
+## Documentation
+
+- [Présentation du projet et de son accessibilité](https://ateliernumerique37-tech.github.io/petits-chevaux/README.md) : document Markdown sur les modes de jeu, le fonctionnement et les choix d'accessibilité.
+
+## Optional
+
+- [Code source](https://github.com/ateliernumerique37-tech/petits-chevaux) : dépôt public du jeu.

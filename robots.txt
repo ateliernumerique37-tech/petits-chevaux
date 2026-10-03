@@ -1,5 +1,7 @@
-# Accès libre à tous les robots, y compris les robots d'indexation IA
-# (GPTBot, ChatGPT-User, ClaudeBot, Google-Extended, PerplexityBot, CCBot...)
+# Copie informative publiée sous /petits-chevaux/.
+# Les moteurs lisent le robots.txt de la racine du domaine ; ce fichier de projet
+# ne contrôle pas leur exploration. Au 3 octobre 2026, la racine du domaine
+# répondait 404 pour robots.txt : aucun blocage n'a été constaté.
 User-agent: *
 Allow: /
 
