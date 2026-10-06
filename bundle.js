@@ -743,6 +743,7 @@
     "capture",
     "home-stretch",
     "victory",
+    "defeat",
     "pass-turn",
     "pass-phone"
   ];
@@ -1554,6 +1555,10 @@
     if (isOnline) return onlinePlayerName(color);
     return aiPlayers.has(color) ? `${aiNames[color]} (${COLOR_NAMES[color]})` : COLOR_NAMES[color];
   }
+  function resultSound(winnerColor) {
+    if (isOnline) return winnerColor === myColor ? "victory" : "defeat";
+    return aiPlayers.has(winnerColor) ? "defeat" : "victory";
+  }
   function onlinePlayerName(color) {
     for (const p of Object.values(onlinePlayersMap)) {
       if (p.color === color) return `${p.name} (${COLOR_NAMES[color]})`;
@@ -2043,7 +2048,7 @@
           setRoomStatus("finished");
         }
         setTimeout(() => {
-          play("victory");
+          play(resultSound(ev.color));
           vibrate([100, 50, 100, 50, 300]);
           showWinner(ev.color, isOnline ? {} : sessionScores, nameMap);
         }, 600);
@@ -2166,7 +2171,7 @@
         }
       }
       if (action.type === "win") {
-        play("victory");
+        play(resultSound(action.winner));
         vibrate([100, 50, 100, 50, 300]);
         recordStats(action.winner);
         const nameMap = {};
@@ -2350,7 +2355,7 @@
       recordStats(myColor);
       setRoomStatus("finished");
       const nameMap = { [myColor]: onlinePlayerName(myColor) };
-      play("victory");
+      play(resultSound(myColor));
       vibrate([100, 50, 100, 50, 300]);
       showWinner(myColor, {}, nameMap);
       return;

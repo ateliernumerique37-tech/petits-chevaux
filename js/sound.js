@@ -12,7 +12,7 @@ const fetched = new Map();   // name -> Promise<ArrayBuffer|null> (octets bruts)
 
 const SOUNDS = [
   'dice-roll', 'dice-six', 'move', 'exit-stable',
-  'capture', 'home-stretch', 'victory', 'pass-turn', 'pass-phone',
+  'capture', 'home-stretch', 'victory', 'defeat', 'pass-turn', 'pass-phone',
 ];
 
 // Fetch des MP3 dès le chargement de la page (depuis le cache service worker)

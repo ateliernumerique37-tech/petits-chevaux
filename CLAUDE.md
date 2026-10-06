@@ -27,7 +27,7 @@ petits-chevaux/
 ├── bundle.js           # Artefact de build (NE PAS éditer directement)
 ├── firebase.json       # Config Firebase (pointe vers database.rules.json)
 ├── database.rules.json # Règles de sécurité Firebase Realtime Database
-├── sounds/             # Fichiers MP3 (8 sons)
+├── sounds/             # Fichiers MP3 (10 sons)
 │   ├── dice-roll.mp3
 │   ├── dice-six.mp3
 │   ├── move.mp3
@@ -35,6 +35,7 @@ petits-chevaux/
 │   ├── capture.mp3
 │   ├── home-stretch.mp3
 │   ├── victory.mp3
+│   ├── defeat.mp3      # Défaite contre l'IA ou en ligne (ElevenLabs)
 │   ├── pass-turn.mp3
 │   └── pass-phone.mp3  # Gardé dans les assets (son encore présent)
 └── js/                 # Sources ES Modules, toutes committées
@@ -70,7 +71,7 @@ Conséquence : **la fraîcheur de la PWA ne dépend plus du bump de `CACHE`**. T
 l'appareil est en ligne, la PWA charge toujours la dernière version déployée — même si
 on oublie d'incrémenter le numéro.
 
-Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v31**) reste utile mais
+Le bump de `CACHE = 'petits-chevaux-vN'` (version actuelle : **v32**) reste utile mais
 **non critique** : il sert seulement à purger les anciens caches au prochain `activate`.
 
 > **Historique du bug (juin 2026)** : avant v18, la stratégie était **cache-first**.
@@ -201,7 +202,10 @@ unlockAudio()   // débloque l'audio sur iOS (doit être appelé depuis un geste
 play(name)      // joue un son par nom
 ```
 
-Sons disponibles : `dice-roll`, `dice-six`, `move`, `exit-stable`, `capture`, `home-stretch`, `victory`, `pass-turn`, `pass-phone`.
+Sons disponibles : `dice-roll`, `dice-six`, `move`, `exit-stable`, `capture`, `home-stretch`, `victory`, `defeat`, `pass-turn`, `pass-phone`.
+À la fin d'une partie, `defeat` joue si une IA gagne en local ou si un autre joueur
+gagne en ligne. `victory` reste utilisé pour une victoire personnelle et pour toutes
+les fins de partie en local humain contre humain sur le même appareil.
 
 ---
 
